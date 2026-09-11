@@ -4,57 +4,21 @@
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-LOG-001 | NOT STARTED | — | — |
-| FR-LOG-002 | NOT STARTED | — | — |
-| FR-LOG-003 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-LOG-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-LOG-002 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-LOG-003 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
 
 ## Implementation
 
-### Domain
+- Pilot log entries: `pilot_log_entries`, `PilotLogEntry`.
+- Experience totals and period summaries: `PilotLogbookSummary`.
 
-Not implemented.
+## Architectural Note
 
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+Pilot logbook records remain separate from aircraft flight folios per ADR-004.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- Logbook CRUD UI.
+- PDF/CSV exports and regulator/application-support formats.
+- Authenticated browser verification.

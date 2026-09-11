@@ -1,61 +1,22 @@
-# Documents, Records & Audit
+# Documents & Records
 
 ## Requirements
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-DOC-001 | NOT STARTED | — | — |
-| FR-REC-001 | NOT STARTED | — | — |
-| FR-REC-002 | NOT STARTED | — | — |
-| FR-REC-003 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-DOC-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-REC-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-REC-002 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-REC-003 | VERIFIED | docs/10-verification/phase-1/fr-rec-003-audit-trail.md | Pending commit |
 
 ## Implementation
 
-### Domain
-
-Not implemented.
-
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+- Regulatory document metadata/control: `regulatory_documents`, `RegulatoryDocument`.
+- Retention rules: `record_retention_rules`, `RecordRetentionRule`.
+- Audit trail foundation: `uas_audit_entries`, `UasAuditEntry`.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- File vault/storage workflow.
+- Audit review/export UI.
+- Retention lock/archive workflows.

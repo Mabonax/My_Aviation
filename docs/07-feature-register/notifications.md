@@ -1,58 +1,18 @@
-# Compliance Notifications
+# Notifications
 
 ## Requirements
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-NOT-001 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-NOT-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
 
 ## Implementation
 
-### Domain
-
-Not implemented.
-
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+- Compliance notification storage: `compliance_notifications`, `ComplianceNotification`.
+- Expiry alert date planning: `ExpiryNotificationPlanner`.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- Scheduler/jobs.
+- Email/mobile/SMS channels.
+- User notification preferences.

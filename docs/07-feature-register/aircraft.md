@@ -4,59 +4,22 @@
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-AIR-001 | NOT STARTED | — | — |
-| FR-AIR-002 | NOT STARTED | — | — |
-| FR-AIR-003 | NOT STARTED | — | — |
-| FR-LA-001 | NOT STARTED | — | — |
-| FR-LA-002 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-AIR-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-AIR-002 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-AIR-003 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-LA-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-LA-002 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
 
 ## Implementation
 
-### Domain
-
-Not implemented.
-
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+- Aircraft master records: `uas_aircraft`, `UasAircraft`.
+- Registration lifecycle records: `aircraft_registrations`, `AircraftRegistration`.
+- UASLA/RLA approval records: `aircraft_approvals`, `AircraftApproval`.
+- Serviceability control: `AircraftServiceabilityEvaluator` blocks grounded, unserviceable, suspended, de-registered, sold and flight-restricted aircraft from released-flight assignment.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- Full aircraft CRUD UI.
+- Renewal case-pack workflow.
+- Maintenance and defect integration.
+- Authenticated browser verification.

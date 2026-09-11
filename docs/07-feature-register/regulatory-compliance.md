@@ -1,59 +1,21 @@
-# Regulatory Compliance Engine
+# Regulatory Compliance
 
 ## Requirements
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-REG-001 | NOT STARTED | — | — |
-| FR-CMP-001 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-REG-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-CMP-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
 
 ## Implementation
 
-### Domain
-
-Not implemented.
-
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+- Structured regulatory requirements: `regulatory_requirements`, `RegulatoryRequirement`.
+- Versioned regulatory fees: `regulatory_fees`, `RegulatoryFee`.
+- Compliance findings: `compliance_findings`, `ComplianceFinding`.
+- Dashboard summary query: `ComplianceDashboardSummary`.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- Regulatory dataset seeding from verified SACAA source material.
+- Compliance scoring beyond MVP counts/findings.
+- Dashboard drill-down UI.

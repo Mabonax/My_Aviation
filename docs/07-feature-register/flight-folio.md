@@ -4,59 +4,23 @@
 
 | Requirement | Status | Verification | Latest commit |
 |---|---|---|---|
-| FR-FOL-001 | NOT STARTED | — | — |
-| FR-FOL-002 | NOT STARTED | — | — |
-| FR-FOL-003 | NOT STARTED | — | — |
-| FR-FOL-004 | NOT STARTED | — | — |
-| FR-FOL-005 | NOT STARTED | — | — |
-
-## Founding intent
-
-Refer to the consolidated Functional Requirements Specification and relevant functional-domain document.
+| FR-FOL-001 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-FOL-002 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-FOL-003 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-FOL-004 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
+| FR-FOL-005 | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Pending commit |
 
 ## Implementation
 
-### Domain
+- Aircraft flight folio entries: `aircraft_flight_folios`, `AircraftFlightFolio`.
+- Flight record updates, charging/fuel/oil JSON records, maintenance certification JSON records and offline availability flag are represented.
 
-Not implemented.
+## Architectural Note
 
-### Database
-
-Not implemented.
-
-### Services
-
-Not implemented.
-
-### Permissions
-
-Not implemented.
-
-### Routes / Controllers
-
-Not implemented.
-
-### UI
-
-Not implemented.
-
-### Tests
-
-Not implemented.
-
-## Regulatory references
-
-Record authoritative sources and versions here as compliance-critical controls are implemented.
-
-## Verification
-
-No verification recorded.
+Aircraft folio records remain separate from pilot logbook records per ADR-004.
 
 ## Outstanding
 
-Feature not yet implemented.
-
-## Change history
-
-| Date | Commit | Change |
-|---|---|---|
+- Folio CRUD UI.
+- Mobile/offline synchronization proof.
+- Maintenance release integration.

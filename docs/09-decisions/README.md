@@ -17,3 +17,4 @@ Architecture Decision Records (ADRs) preserve important decisions that should no
 - ADR-004 — Pilot logbook and aircraft flight folio are separate
 - ADR-005 — SACAA is authoritative regulator
 - ADR-006 — Mapping basemaps are not authoritative airspace data
+- ADR-007 - UAS bounded domain layering

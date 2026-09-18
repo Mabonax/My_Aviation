@@ -26,6 +26,7 @@ class ProfileUpdateRequest extends FormRequest
                 'email',
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
+                ...($this->user()->workos_id ? [Rule::in([$this->user()->email])] : []),
             ],
         ];
     }

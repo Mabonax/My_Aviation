@@ -30,7 +30,7 @@ Establish the regulatory master records and first usable VMT UAS compliance prod
 | FR-REC-003 | Audit trail | VERIFIED | docs/10-verification/phase-1/fr-rec-003-audit-trail.md | Pilot profile create/update and notification-planning audit events covered. |
 | FR-REG-001 | Regulatory knowledge engine | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Structured regulatory requirement register covered; official source URLs captured for production dataset work. |
 | FR-NOT-001 | Expiry/compliance notifications | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Notification table, expiry planner, idempotent planning command and scheduler registration covered. |
-| FR-DOC-001 | Compliance document management | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Regulatory document metadata/control model covered; binary file vault remains a later enhancement. |
+| FR-DOC-001 | Compliance document management | VERIFIED | docs/10-verification/remediation/evidence-document-architecture.md | Regulatory document metadata/control model and governed binary evidence vault are covered; preview/download, backfill and mobile/offline evidence remain later enhancements. |
 | FR-CMP-001 | Compliance dashboard | VERIFIED | docs/10-verification/phase-1/phase-1-mvp-completion.md | Live dashboard summary plus authenticated Phase 1 verification dashboard covered. |
 
 ## Phase Gate

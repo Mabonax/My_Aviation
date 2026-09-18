@@ -8,20 +8,23 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import WorkosLogin from '@/components/workos-login';
 import AuthLayout from '@/layouts/auth-layout';
 
-interface LoginForm {
+type LoginForm = {
     email: string;
     password: string;
     remember: boolean;
-}
+};
 
 interface LoginProps {
+    workosEnabled: boolean;
+    workosError?: string;
     status?: string;
     canResetPassword: boolean;
 }
 
-export default function Login({ status, canResetPassword }: LoginProps) {
+export default function Login({ status, canResetPassword, workosEnabled, workosError }: LoginProps) {
     const { data, setData, post, processing, errors, reset } = useForm<LoginForm>({
         email: '',
         password: '',
@@ -36,8 +39,18 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     };
 
     return (
-        <AuthLayout title="Log in to your account" description="Enter your email and password below to log in">
+        <AuthLayout
+            title="Log in to your account"
+            description={workosEnabled ? 'Choose how you want to log in' : 'Enter your email and password below to log in'}
+        >
             <Head title="Log in" />
+
+            {workosError && (
+                <p role="alert" className="text-destructive text-sm">
+                    {workosError}
+                </p>
+            )}
+            {workosEnabled && <WorkosLogin />}
 
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">
@@ -80,7 +93,13 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     </div>
 
                     <div className="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" tabIndex={3} />
+                        <Checkbox
+                            id="remember"
+                            name="remember"
+                            tabIndex={3}
+                            checked={data.remember}
+                            onCheckedChange={(checked) => setData('remember', checked === true)}
+                        />
                         <Label htmlFor="remember">Remember me</Label>
                     </div>
 

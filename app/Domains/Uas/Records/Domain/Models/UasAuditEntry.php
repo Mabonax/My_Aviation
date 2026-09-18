@@ -2,6 +2,7 @@
 
 namespace App\Domains\Uas\Records\Domain\Models;
 
+use App\Domains\Uas\Regulations\Domain\Models\RegulatoryRequirement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,5 +41,10 @@ class UasAuditEntry extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function regulatoryRequirement(): BelongsTo
+    {
+        return $this->belongsTo(RegulatoryRequirement::class, 'requirement_id', 'requirement_id');
     }
 }

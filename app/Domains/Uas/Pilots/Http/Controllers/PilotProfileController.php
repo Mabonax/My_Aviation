@@ -3,14 +3,17 @@
 namespace App\Domains\Uas\Pilots\Http\Controllers;
 
 use App\Domains\Uas\Pilots\Application\Actions\CreatePilotProfile;
+use App\Domains\Uas\Pilots\Application\Actions\LinkPilotProfileToUser;
 use App\Domains\Uas\Pilots\Application\Actions\UpdatePilotProfile;
 use App\Domains\Uas\Pilots\Application\DTOs\PilotProfileData;
 use App\Domains\Uas\Pilots\Application\Queries\ListPilotProfiles;
 use App\Domains\Uas\Pilots\Application\Queries\PilotProfileOptions;
 use App\Domains\Uas\Pilots\Application\Queries\PilotProfilePresenter;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
+use App\Domains\Uas\Pilots\Http\Requests\LinkPilotProfileUserRequest;
 use App\Domains\Uas\Pilots\Http\Requests\StorePilotProfileRequest;
 use App\Domains\Uas\Pilots\Http\Requests\UpdatePilotProfileRequest;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -79,5 +82,20 @@ class PilotProfileController extends Controller
         );
 
         return redirect()->route('pilots.show', $pilot)->with('success', 'Pilot profile updated.');
+    }
+
+    public function linkUser(LinkPilotProfileUserRequest $request, UasPilot $pilot, LinkPilotProfileToUser $linkPilotProfileToUser): RedirectResponse
+    {
+        $targetUser = User::query()->findOrFail($request->validated('user_id'));
+
+        $pilot = $linkPilotProfileToUser->execute(
+            $pilot,
+            $targetUser,
+            $request->user(),
+            $request->ip(),
+            $request->userAgent(),
+        );
+
+        return redirect()->route('pilots.show', $pilot)->with('success', 'Pilot profile linked to user.');
     }
 }

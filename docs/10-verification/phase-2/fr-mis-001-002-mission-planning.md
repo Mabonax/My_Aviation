@@ -29,6 +29,12 @@ The initial release gate distinguishes regulatory prohibitions from internal pol
 - Internal policy check: risk assessment capture.
 - Result states: `green`, `amber`, `red`.
 
+## Remediation Update
+
+Mission release readiness is now verified in `docs/10-verification/remediation/mission-compliance-release-readiness.md`.
+
+The mission release gate now consumes `MissionComplianceSummary`, which consumes `AircraftReadinessSummary` instead of duplicating aircraft readiness rules. Green and amber releases are server-side actions with audit evidence; red releases are rejected by backend validation.
+
 ## Authorization Evidence
 
 Mission routes use `MissionPolicy` and require UAS role permissions:
@@ -49,6 +55,6 @@ Delete is denied for Phase 2 mission records.
 
 ## Status
 
-`IMPLEMENTED`
+`VERIFIED`
 
 This slice starts Phase 2. It does not complete Phase 2 because maps, aviation overlays, spatial rule evaluation, versioned checklists, crew workflow, tracks, battery management and defects remain pending.

@@ -3,11 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 
-export interface GeoPoint {
+export type GeoPoint = {
     latitude: string;
     longitude: string;
     label?: string;
-}
+};
 
 interface MissionGeometryEditorProps {
     takeoffPoint: GeoPoint;
@@ -89,7 +89,7 @@ function PointList({ title, points, minRows, onChange }: { title: string; points
     );
 }
 
-function GeometryPreview({ takeoffPoint, landingPoint, polygon, route }: { takeoffPoint: GeoPoint; landingPoint: GeoPoint; polygon: GeoPoint[]; route: GeoPoint[] }) {
+export function GeometryPreview({ takeoffPoint, landingPoint, polygon, route }: { takeoffPoint: GeoPoint; landingPoint: GeoPoint; polygon: GeoPoint[]; route: GeoPoint[] }) {
     const validPolygon = polygon.filter(isValidPoint);
     const validRoute = route.filter(isValidPoint);
     const points = [takeoffPoint, landingPoint, ...validPolygon, ...validRoute].filter(isValidPoint);

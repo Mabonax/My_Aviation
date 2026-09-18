@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+        stroke: #bcbec0;
+        stroke-width: 5px;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2 {
+        fill: url(#linear-gradient-3);
+        stroke: url(#linear-gradient-4);
+      }
+
+      .cls-2, .cls-3 {
+        stroke-width: 2px;
+      }
+
+      .cls-3 {
+        fill: url(#linear-gradient);
+        stroke: url(#linear-gradient-2);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="409.83" y1="698.04" x2="409.83" y2="326.11" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000"/>
+      <stop offset="0" stop-color="#010508"/>
+      <stop offset=".02" stop-color="#091e33"/>
+      <stop offset=".04" stop-color="#11345a"/>
+      <stop offset=".06" stop-color="#17487c"/>
+      <stop offset=".09" stop-color="#1d5898"/>
+      <stop offset=".12" stop-color="#2166af"/>
+      <stop offset=".15" stop-color="#2470c1"/>
+      <stop offset=".18" stop-color="#2777cd"/>
+      <stop offset=".23" stop-color="#287bd4"/>
+      <stop offset=".35" stop-color="#297dd7"/>
+      <stop offset=".46" stop-color="#2984d9"/>
+      <stop offset=".62" stop-color="#2999e0"/>
+      <stop offset=".81" stop-color="#2abbec"/>
+      <stop offset="1" stop-color="#2be2fa"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="308.17" y1="512.43" x2="508.99" y2="512.43" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#24d2c6"/>
+      <stop offset=".5" stop-color="#2484c6"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="518.28" y1="511.95" x2="712.33" y2="511.95" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-4" x1="517.27" y1="512.53" x2="715.85" y2="512.53" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2484c6"/>
+      <stop offset=".5" stop-color="#24d2c6"/>
+    </linearGradient>
+  </defs>
+  <rect class="cls-1" x="212" y="212" width="600" height="600" rx="100" ry="100"/>
+  <g>
+    <path class="cls-3" d="M396.61,625.25c15.05-15.59,33.21-34,47.57-50.22-.2-2.11-.73-1.88-1.26-.49-44.65,35.84-87.59,76.42-131.26,113.3,47.02-85.05,148.83-274.9,196.32-361.73-.01,58.59-.31,180.36-.45,239.46-1.46,8.29-16.09,16.94-21.77,22.05-50.41,39.59-105.52,77.21-160.35,110.41,22.61-24.08,48.48-48.79,71.19-72.78Z"/>
+    <path class="cls-2" d="M617.28,612.49c26.59,28.4,55.88,57.41,82.84,85.44-59.98-37.78-120.27-79.03-175.85-123.05-2.55-1.97-5.63-6.43-5.64-10.1l-.36-238.81c53.64,101.37,139.16,260,194.05,361.42-42.3-36.92-85.14-76.2-128.05-112.41-.29-.99-1.65-1.84-2.29-.84,9.91,11.91,24.67,27.11,35.29,38.35Z"/>
+  </g>
+</svg>

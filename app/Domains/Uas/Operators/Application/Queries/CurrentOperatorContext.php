@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Domains\Uas\Operators\Application\Queries;
+
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+
+class CurrentOperatorContext
+{
+    public function resolve(User $user, ?int $operatorId = null): ?UasOperator
+    {
+        if ($this->hasGlobalOperatorAccess($user)) {
+            return $operatorId ? UasOperator::query()->find($operatorId) : null;
+        }
+
+        $query = $this->activeMembershipQuery($user)->with('operator');
+
+        if ($operatorId !== null) {
+            $query->where('uas_operator_id', $operatorId);
+        }
+
+        $memberships = $query->get();
+
+        if ($memberships->count() !== 1) {
+            return null;
+        }
+
+        return $memberships->first()->operator;
+    }
+
+    public function canAccessOperator(User $user, UasOperator|int $operator): bool
+    {
+        $operatorId = $operator instanceof UasOperator ? $operator->id : $operator;
+
+        return $this->hasGlobalOperatorAccess($user)
+            || $this->activeMembershipQuery($user)->where('uas_operator_id', $operatorId)->exists();
+    }
+
+    public function canManageOperator(User $user, UasOperator|int $operator): bool
+    {
+        $operatorId = $operator instanceof UasOperator ? $operator->id : $operator;
+
+        if ($user->hasUasPermission('operators.update')) {
+            return true;
+        }
+
+        return $this->activeMembershipQuery($user)
+            ->where('uas_operator_id', $operatorId)
+            ->whereIn('membership_role', UasOperatorMembership::managerRoles())
+            ->exists();
+    }
+
+    public function accessibleOperatorIds(User $user): array
+    {
+        if ($this->hasGlobalOperatorAccess($user)) {
+            return UasOperator::query()->pluck('id')->all();
+        }
+
+        return $this->activeMembershipQuery($user)->pluck('uas_operator_id')->all();
+    }
+
+    public function scopeOperatorsFor(User $user): Builder
+    {
+        $query = UasOperator::query();
+
+        if ($this->hasGlobalOperatorAccess($user)) {
+            return $query;
+        }
+
+        return $query->whereIn('id', $this->accessibleOperatorIds($user));
+    }
+
+    public function hasGlobalOperatorAccess(User $user): bool
+    {
+        return $user->hasUasPermission('operators.view');
+    }
+
+    private function activeMembershipQuery(User $user): Builder
+    {
+        return UasOperatorMembership::query()
+            ->where('user_id', $user->id)
+            ->where('status', UasOperatorMembership::STATUS_ACTIVE);
+    }
+}

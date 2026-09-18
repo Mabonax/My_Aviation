@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Domains\Uas\Access\Application\WorkosConfiguration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -19,6 +20,9 @@ class ProfileController extends Controller
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/profile', [
+            'workosEnabled' => WorkosConfiguration::enabled(),
+            'workosConnected' => filled($request->user()->workos_id),
+            'workosError' => $request->session()->get('workos_error'),
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
         ]);

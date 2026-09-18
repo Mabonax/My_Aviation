@@ -25,3 +25,7 @@ This directory tracks implementation progress against the founding Functional Re
 Status must be based on repository evidence, not intention.
 
 Never change a requirement to `VERIFIED` without recording verification evidence under `docs/10-verification/`.
+
+## FR-AIM-009 — 2026-09-16
+
+**IMPLEMENTED.** Baseline remediation and provider readiness hardening are recorded in the [operational acceptance evidence](../10-verification/remediation/fr-aim-009-operational-acceptance.md). Source health continues to block release for the unconfigured required `atns_aim` provider. Automated, HTTP, visual browser, emulator and external-provider evidence are separate; no production or official-source verification is claimed. ATNS engagement can proceed using the specification and capability template.

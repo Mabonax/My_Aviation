@@ -15,11 +15,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Create', href: '/missions/create' },
 ];
 
-type MissionFormData = Record<string, string> & {
+type MissionFormData = {
+    purpose: string;
+    client_project: string;
+    location: string;
+    location_search_query: string;
+    latitude: string;
+    longitude: string;
     takeoff_point: GeoPoint;
     landing_point: GeoPoint;
     mission_polygon: GeoPoint[];
     flight_route: GeoPoint[];
+    flight_radius_m: string;
+    operation_category: string;
+    uas_operator_id: string;
+    uas_aircraft_id: string;
+    uas_pilot_id: string;
+    planned_start_at: string;
+    planned_end_at: string;
+    maximum_altitude_ft: string;
+    planned_distance_km: string;
+    operation_visibility: string;
+    day_night: string;
+    weather: string;
+    airspace_assessment: string;
+    emergency_arrangements: string;
 };
 
 export default function Create({ options }: { options: MissionOptions }) {
@@ -36,6 +56,7 @@ export default function Create({ options }: { options: MissionOptions }) {
         flight_route: [],
         flight_radius_m: '',
         operation_category: 'standard',
+        uas_operator_id: '',
         uas_aircraft_id: '',
         uas_pilot_id: '',
         planned_start_at: '',
@@ -54,6 +75,7 @@ export default function Create({ options }: { options: MissionOptions }) {
 
         transform((values) => ({
             ...values,
+            uas_operator_id: values.uas_operator_id || null,
             uas_aircraft_id: values.uas_aircraft_id || null,
             uas_pilot_id: values.uas_pilot_id || null,
             latitude: values.latitude || null,
@@ -84,6 +106,7 @@ export default function Create({ options }: { options: MissionOptions }) {
                     <Field label="Location search" error={errors.location_search_query}><Input value={data.location_search_query} onChange={(event) => setData('location_search_query', event.target.value)} /></Field>
                     <Field label="Latitude" error={errors.latitude}><Input value={data.latitude} onChange={(event) => setData('latitude', event.target.value)} /></Field>
                     <Field label="Longitude" error={errors.longitude}><Input value={data.longitude} onChange={(event) => setData('longitude', event.target.value)} /></Field>
+                    <SelectField label="Operator" value={data.uas_operator_id} onChange={(value) => setData('uas_operator_id', value)} options={options.operators} placeholder="Select operator" error={errors.uas_operator_id} />
                     <SelectField label="Aircraft" value={data.uas_aircraft_id} onChange={(value) => setData('uas_aircraft_id', value)} options={options.aircraft} placeholder="Select aircraft" error={errors.uas_aircraft_id} />
                     <SelectField label="Pilot" value={data.uas_pilot_id} onChange={(value) => setData('uas_pilot_id', value)} options={options.pilots} placeholder="Select pilot" error={errors.uas_pilot_id} />
                     <SelectMap label="Visibility" value={data.operation_visibility} onChange={(value) => setData('operation_visibility', value)} options={options.visibility_modes} />

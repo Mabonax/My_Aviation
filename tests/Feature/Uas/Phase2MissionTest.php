@@ -134,8 +134,8 @@ it('creates a mission record with lifecycle, release gate and audit evidence', f
 
     expect($mission->purpose)->toBe('Linear infrastructure inspection')
         ->and($mission->lifecycle_state)->toBe(MissionLifecycleState::Draft)
-        ->and($mission->release_gate_state)->toBe('green')
-        ->and($mission->release_gate_results['checks'])->toHaveCount(7)
+        ->and($mission->release_gate_state)->toBe('red')
+        ->and($mission->release_gate_results['checks'])->toHaveCount(8)
         ->and($mission->regulatory_source)->toContain('FR-MIS-001')
         ->and($mission->responsible_role)->toBe('Operations Manager');
 

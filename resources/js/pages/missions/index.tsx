@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/uas/status-badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRight, Plus } from 'lucide-react';
+import { MapPin, ArrowRight, Plus } from 'lucide-react';
 import { MissionProfile } from './types';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Missions', href: '/missions' }];
@@ -30,7 +30,7 @@ export default function Index({ missions }: { missions: MissionProfile[] }) {
 
                 <section className="rounded-lg border bg-card text-card-foreground shadow-xs">
                     {missions.length === 0 ? (
-                        <EmptyState title="No missions yet" description="Create the first mission plan to start Phase 2 operations control." action={<Link href="/missions/create">Create mission</Link>} />
+                        <EmptyState icon={MapPin} title="No missions yet" description="Create the first mission plan to start Phase 2 operations control." action={<Link href="/missions/create">Create mission</Link>} />
                     ) : (
                         <div className="divide-y">
                             {missions.map((mission) => (
@@ -40,8 +40,12 @@ export default function Index({ missions }: { missions: MissionProfile[] }) {
                                         <div className="text-sm text-muted-foreground">{mission.purpose}</div>
                                     </div>
                                     <div className="text-sm text-muted-foreground md:col-span-3">{mission.location}</div>
-                                    <div className="md:col-span-2"><StatusBadge value={mission.lifecycle_state.replaceAll('_', ' ')} /></div>
-                                    <div className="md:col-span-2"><StatusBadge value={mission.release_gate_state} /></div>
+                                    <div className="text-sm text-muted-foreground md:col-span-2">
+                                        {mission.operator?.legal_entity || 'No operator'}
+                                        <div className="text-xs">{mission.compliance.blocking_count} block / {mission.compliance.warning_count} warn</div>
+                                    </div>
+                                    <div className="md:col-span-1"><StatusBadge value={mission.lifecycle_state.replaceAll('_', ' ')} /></div>
+                                    <div className="md:col-span-1"><StatusBadge value={mission.compliance.status} /></div>
                                     <div className="flex justify-end md:col-span-1">
                                         <Button variant="ghost" size="icon" asChild aria-label={`View ${mission.mission_number}`}>
                                             <Link href={`/missions/${mission.id}`}><ArrowRight className="size-4" /></Link>

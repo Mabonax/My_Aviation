@@ -2,8 +2,12 @@
 
 namespace App\Domains\Uas\Compliance\Domain\Models;
 
+use App\Domains\Uas\Regulations\Domain\Models\RegulatoryRequirement;
+use App\Domains\Uas\Documents\Domain\Models\EvidenceLink;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ComplianceFinding extends Model
 {
@@ -17,5 +21,15 @@ class ComplianceFinding extends Model
     public function compliable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function regulatoryRequirement(): BelongsTo
+    {
+        return $this->belongsTo(RegulatoryRequirement::class, 'requirement_id', 'requirement_id');
+    }
+
+    public function evidenceLinks(): MorphMany
+    {
+        return $this->morphMany(EvidenceLink::class, 'evidenceable');
     }
 }

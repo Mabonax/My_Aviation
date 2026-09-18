@@ -46,7 +46,7 @@ class MissionSpatialRuleEvaluator
         ];
     }
 
-    private function missionGeometry(UasMission $mission): array
+    public function missionGeometry(UasMission $mission): array
     {
         $points = collect([
             $this->normalisePoint($mission->takeoff_point),
@@ -121,7 +121,7 @@ class MissionSpatialRuleEvaluator
             ->all();
     }
 
-    private function normalisePoint(?array $point): ?array
+    public function normalisePoint(?array $point): ?array
     {
         if ($point === null || ! isset($point['latitude'], $point['longitude']) || ! is_numeric($point['latitude']) || ! is_numeric($point['longitude'])) {
             return null;
@@ -160,7 +160,7 @@ class MissionSpatialRuleEvaluator
             && $a['max_longitude'] >= $b['min_longitude'];
     }
 
-    private function pointInPolygon(array $point, array $polygon): bool
+    public function pointInPolygon(array $point, array $polygon): bool
     {
         $inside = false;
         $count = count($polygon);

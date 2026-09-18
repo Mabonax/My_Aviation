@@ -10,6 +10,7 @@ export interface MissionOption {
 }
 
 export interface MissionOptions {
+    operators: MissionOption[];
     aircraft: MissionOption[];
     pilots: MissionOption[];
     lifecycle_states: Record<string, string>;
@@ -33,10 +34,15 @@ export interface MissionProfile {
     flight_route: GeoPointValue[];
     flight_radius_m: number | null;
     operation_category: string;
+    operator: { id: number; legal_entity: string } | null;
     aircraft: { id: number; registration: string; model: string } | null;
     pilot: { id: number; display_name: string } | null;
     planned_start_at: string | null;
     planned_end_at: string | null;
+    actual_takeoff_at: string | null;
+    actual_landing_at: string | null;
+    actual_flight_duration_minutes: number | null;
+    completed_at: string | null;
     maximum_altitude_ft: number | null;
     planned_distance_km: string | null;
     operation_visibility: string;
@@ -48,9 +54,17 @@ export interface MissionProfile {
     release_gate_state: string;
     release_gate_results: {
         state?: string;
+        status?: string;
+        label?: string;
+        blocking_count?: number;
+        warning_count?: number;
+        controls?: MissionComplianceControl[];
         checks?: Array<{ label: string; result: string; basis: string; message: string }>;
         evaluated_at?: string;
     };
+    compliance: MissionComplianceSummary;
+    post_flight_propagation: PostFlightPropagationSummary;
+    evidence: EvidenceSummary;
     regulatory_source: string;
     regulatory_source_version: string;
     regulatory_effective_date: string | null;
@@ -80,6 +94,73 @@ export interface SpatialRuleReview {
             authoritative: boolean;
         };
     }>;
+}
+
+export interface EvidenceSummary {
+    count: number;
+    documents: Array<{
+        id: number;
+        document_uid: string;
+        title: string;
+        category: string;
+        status: string;
+        version: number;
+        expires_at: string | null;
+        evidence_role: string;
+        requirement_id: string | null;
+        notes: string | null;
+        attached_at: string | null;
+    }>;
+}
+
+export interface MissionComplianceControl {
+    key: string;
+    label: string;
+    status: 'green' | 'amber' | 'red';
+    summary: string;
+    blocking: boolean;
+    details: Record<string, unknown>;
+    reasons: string[];
+    action_href: string | null;
+}
+
+export interface MissionComplianceSummary {
+    status: 'green' | 'amber' | 'red';
+    label: string;
+    blocking_count: number;
+    warning_count: number;
+    evaluated_at?: string;
+    controls?: MissionComplianceControl[];
+}
+
+export interface PostFlightPropagationSummary {
+    state: string;
+    label: string;
+    can_propagate?: boolean;
+    propagated_at?: string | null;
+    actual_takeoff_at?: string | null;
+    actual_landing_at?: string | null;
+    actual_flight_duration_minutes?: number | null;
+    completed_at?: string | null;
+    pilot_log_entry_id?: number | null;
+    aircraft_flight_folio_id?: number | null;
+    latest_checklist_state?: string | null;
+    post_flight_declaration?: {
+        pilot_confirmed?: boolean;
+        aircraft_confirmed?: boolean;
+        defects_declared?: boolean;
+        occurrence_declared?: boolean;
+        closure_notes?: string | null;
+    };
+    results?: {
+        battery_cycles_summarised?: number;
+        battery_usage_count?: number;
+        flight_track_count?: number;
+        defect_count?: number;
+        open_defect_count?: number;
+        post_flight_checklist_state?: string;
+    };
+    blocking_reasons?: string[];
 }
 export interface MissionChecklistReport {
     template: {

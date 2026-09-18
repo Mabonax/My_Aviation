@@ -27,3 +27,5 @@ Each feature file should include:
 - `flight-folio.md`
 - `documents-and-records.md`
 - `notifications.md`
+
+- [Aeronautical information](aeronautical-information.md) - FR-AIM-001 through FR-AIM-008.

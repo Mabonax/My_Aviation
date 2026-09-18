@@ -4,16 +4,34 @@ namespace App\Domains\Uas\Missions\Application\Queries;
 
 use App\Domains\Uas\Aircraft\Domain\Models\UasAircraft;
 use App\Domains\Uas\Missions\Domain\Services\MissionLifecycle;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
+use App\Models\User;
 
 class MissionOptions
 {
     public function __construct(private readonly MissionLifecycle $lifecycle) {}
 
-    public function execute(): array
+    public function execute(?User $user = null): array
     {
+        $operatorIds = $user ? app(CurrentOperatorContext::class)->accessibleOperatorIds($user) : [];
+        $global = $user === null || $user->hasUasPermission('missions.view');
+
         return [
+            'operators' => UasOperator::query()
+                ->when(! $global, fn ($query) => $query->whereIn('id', $operatorIds))
+                ->orderBy('legal_entity')
+                ->get(['id', 'legal_entity', 'uasoc_number'])
+                ->map(fn (UasOperator $operator): array => [
+                    'id' => $operator->id,
+                    'label' => trim("{$operator->legal_entity} {$operator->uasoc_number}"),
+                ])
+                ->all(),
             'aircraft' => UasAircraft::query()
+                ->when(! $global, fn ($query) => $query->whereHas('operators', fn ($operators) => $operators
+                    ->whereIn('uas_operators.id', $operatorIds)
+                    ->where('uas_operator_aircraft.status', 'active')))
                 ->orderBy('registration')
                 ->get(['id', 'registration', 'model'])
                 ->map(fn (UasAircraft $aircraft): array => [
@@ -22,6 +40,9 @@ class MissionOptions
                 ])
                 ->all(),
             'pilots' => UasPilot::query()
+                ->when(! $global, fn ($query) => $query->whereHas('operators', fn ($operators) => $operators
+                    ->whereIn('uas_operators.id', $operatorIds)
+                    ->where('uas_operator_pilots.status', 'active')))
                 ->orderBy('last_name')
                 ->orderBy('first_name')
                 ->get(['id', 'first_name', 'last_name'])

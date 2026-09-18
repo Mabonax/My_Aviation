@@ -3,7 +3,11 @@
 namespace App\Domains\Uas\Missions\Http\Requests;
 
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorAircraft;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorPilot;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 use Illuminate\Validation\Rule;
 
 class StoreMissionRequest extends FormRequest
@@ -38,6 +42,7 @@ class StoreMissionRequest extends FormRequest
             'flight_route.*.longitude' => ['required_with:flight_route', 'numeric', 'between:-180,180'],
             'flight_radius_m' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'operation_category' => ['required', 'string', 'max:80'],
+            'uas_operator_id' => ['nullable', 'integer', 'exists:uas_operators,id'],
             'uas_aircraft_id' => ['nullable', 'integer', 'exists:uas_aircraft,id'],
             'uas_pilot_id' => ['nullable', 'integer', 'exists:uas_pilots,id'],
             'observers_crew' => ['nullable', 'array'],
@@ -53,5 +58,46 @@ class StoreMissionRequest extends FormRequest
             'risk_assessment' => ['nullable', 'array'],
             'emergency_arrangements' => ['nullable', 'string', 'max:5000'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $user = $this->user();
+
+            if ($user === null || $user->hasUasPermission('missions.create')) {
+                return;
+            }
+
+            $operatorId = $this->integer('uas_operator_id') ?: null;
+
+            if ($operatorId === null) {
+                $validator->errors()->add('uas_operator_id', 'Select the operator responsible for this mission.');
+
+                return;
+            }
+
+            if (! app(CurrentOperatorContext::class)->canAccessOperator($user, $operatorId)) {
+                $validator->errors()->add('uas_operator_id', 'You do not have active membership access to this operator.');
+            }
+
+            $pilotId = $this->integer('uas_pilot_id') ?: null;
+            if ($pilotId !== null && ! UasOperatorPilot::query()
+                ->where('uas_operator_id', $operatorId)
+                ->where('uas_pilot_id', $pilotId)
+                ->where('status', UasOperatorPilot::STATUS_ACTIVE)
+                ->exists()) {
+                $validator->errors()->add('uas_pilot_id', 'Select a pilot actively assigned to this operator.');
+            }
+
+            $aircraftId = $this->integer('uas_aircraft_id') ?: null;
+            if ($aircraftId !== null && ! UasOperatorAircraft::query()
+                ->where('uas_operator_id', $operatorId)
+                ->where('uas_aircraft_id', $aircraftId)
+                ->where('status', UasOperatorAircraft::STATUS_ACTIVE)
+                ->exists()) {
+                $validator->errors()->add('uas_aircraft_id', 'Select aircraft actively assigned to this operator.');
+            }
+        });
     }
 }

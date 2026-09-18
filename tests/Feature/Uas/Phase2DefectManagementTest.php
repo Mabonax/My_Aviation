@@ -177,7 +177,7 @@ it('reports a mission-linked grounding defect, audits it and blocks aircraft ser
     $gate = app(MissionReleaseGate::class)->evaluate($mission->refresh());
 
     expect($gate['state'])->toBe('red')
-        ->and(collect($gate['checks'])->where('label', 'Aircraft serviceability')->first()['result'])->toBe('red');
+        ->and(collect($gate['checks'])->where('label', 'Aircraft')->first()['result'])->toBe('red');
 
     $audit = UasAuditEntry::query()->where('action', 'defect.reported')->firstOrFail();
 

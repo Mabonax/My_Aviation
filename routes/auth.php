@@ -8,9 +8,15 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\Auth\WorkosController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('auth/workos/callback', [WorkosController::class, 'callback'])->middleware('throttle:20,1')->name('workos.callback');
+
 Route::middleware('guest')->group(function () {
+    Route::get('auth/workos', [WorkosController::class, 'redirect'])->middleware('throttle:10,1')->name('workos.login');
+    Route::get('auth/workos/register', [WorkosController::class, 'redirect'])->middleware('throttle:10,1')->name('workos.register');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
@@ -35,6 +41,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('auth/workos/link', [WorkosController::class, 'redirect'])->middleware(['password.confirm', 'throttle:10,1'])->name('workos.link');
+
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

@@ -8,11 +8,16 @@ use App\Domains\Uas\Crew\Application\Queries\MissionCrewReport;
 use App\Domains\Uas\Defects\Application\Queries\MissionDefectReport;
 use App\Domains\Uas\Geography\Domain\Services\MissionSpatialRuleEvaluator;
 use App\Domains\Uas\Missions\Application\Actions\CreateMission;
+use App\Domains\Uas\Missions\Application\Actions\PropagatePostFlightRecords;
+use App\Domains\Uas\Missions\Application\Actions\ReleaseMission;
 use App\Domains\Uas\Missions\Application\DTOs\MissionData;
 use App\Domains\Uas\Missions\Application\Queries\ListMissions;
+use App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary;
 use App\Domains\Uas\Missions\Application\Queries\MissionOptions;
 use App\Domains\Uas\Missions\Application\Queries\MissionPresenter;
+use App\Domains\Uas\Missions\Application\Queries\PostFlightPropagationSummary;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Missions\Http\Requests\PropagatePostFlightRequest;
 use App\Domains\Uas\Missions\Http\Requests\StoreMissionRequest;
 use App\Domains\Uas\Tracks\Application\Queries\MissionTrackReport;
 use App\Http\Controllers\Controller;
@@ -28,7 +33,7 @@ class MissionController extends Controller
         Gate::authorize('viewAny', UasMission::class);
 
         return Inertia::render('missions/index', [
-            'missions' => $missions->execute(),
+            'missions' => $missions->execute(request()->user()),
         ]);
     }
 
@@ -37,7 +42,7 @@ class MissionController extends Controller
         Gate::authorize('create', UasMission::class);
 
         return Inertia::render('missions/create', [
-            'options' => $options->execute(),
+            'options' => $options->execute(request()->user()),
         ]);
     }
 
@@ -53,19 +58,37 @@ class MissionController extends Controller
         return redirect()->route('missions.show', $mission)->with('success', 'Mission created.');
     }
 
-    public function show(UasMission $mission, MissionSpatialRuleEvaluator $spatialRules, MissionChecklistReport $checklists, MissionCrewReport $crewReport, MissionTrackReport $trackReport, MissionBatteryReport $batteryReport, MissionDefectReport $defectReport): Response
+    public function show(UasMission $mission, MissionSpatialRuleEvaluator $spatialRules, MissionChecklistReport $checklists, MissionCrewReport $crewReport, MissionTrackReport $trackReport, MissionBatteryReport $batteryReport, MissionDefectReport $defectReport, MissionComplianceSummary $compliance, PostFlightPropagationSummary $postFlightPropagation): Response
     {
         Gate::authorize('view', $mission);
 
         return Inertia::render('missions/show', [
             'mission' => MissionPresenter::toArray($mission),
+            'missionCompliance' => $compliance->execute($mission),
             'spatialRuleReview' => $spatialRules->evaluate($mission),
             'preFlightChecklist' => $checklists->execute($mission, 'pre_flight'),
             'postFlightChecklist' => $checklists->execute($mission, 'post_flight'),
+            'postFlightPropagation' => $postFlightPropagation->execute($mission),
             'crew' => $crewReport->execute($mission),
             'tracks' => $trackReport->execute($mission),
             'batteries' => $batteryReport->execute($mission),
             'defects' => $defectReport->execute($mission),
         ]);
+    }
+
+    public function release(UasMission $mission, ReleaseMission $releaseMission): RedirectResponse
+    {
+        Gate::authorize('update', $mission);
+
+        $releaseMission->execute($mission, request()->user(), request()->ip(), request()->userAgent());
+
+        return redirect()->route('missions.show', $mission)->with('success', 'Mission released for flight.');
+    }
+
+    public function propagatePostFlight(PropagatePostFlightRequest $request, UasMission $mission, PropagatePostFlightRecords $propagatePostFlightRecords): RedirectResponse
+    {
+        $propagatePostFlightRecords->execute($mission, $request->user(), $request->closureData(), $request->ip(), $request->userAgent());
+
+        return redirect()->route('missions.show', $mission)->with('success', 'Post-flight records propagated.');
     }
 }

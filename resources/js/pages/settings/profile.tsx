@@ -19,7 +19,15 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: boolean; status?: string }) {
+interface ProfileProps {
+    mustVerifyEmail: boolean;
+    status?: string;
+    workosEnabled: boolean;
+    workosConnected: boolean;
+    workosError?: string;
+}
+
+export default function Profile({ mustVerifyEmail, status, workosEnabled, workosConnected, workosError }: ProfileProps) {
     const { auth } = usePage<SharedData>().props;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
@@ -38,6 +46,39 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
             <Head title="Profile settings" />
 
             <SettingsLayout>
+                {workosError && (
+                    <p role="alert" className="text-destructive text-sm">
+                        {workosError}
+                    </p>
+                )}
+                {status === 'WorkOS connected successfully.' && (
+                    <p role="status" className="text-sm text-green-600">
+                        {status}
+                    </p>
+                )}
+                {(workosEnabled || workosConnected) && (
+                    <div className="space-y-3">
+                        <HeadingSmall
+                            title="WorkOS login"
+                            description={
+                                workosConnected
+                                    ? 'WorkOS is connected to your account.'
+                                    : 'Connect WorkOS to sign in to this account. You will confirm your app password first.'
+                            }
+                        />
+                        {!workosConnected && workosEnabled && (
+                            <Button asChild variant="outline">
+                                <a href={route('workos.link')}>Connect WorkOS</a>
+                            </Button>
+                        )}
+                        {workosConnected && (
+                            <p className="text-muted-foreground text-sm">
+                                Your app roles and pilot records stay with this account. Local password settings apply to email and password login. If
+                                you signed up with WorkOS, use Forgot password on the login page to set a local password.
+                            </p>
+                        )}
+                    </div>
+                )}
                 <div className="space-y-6">
                     <HeadingSmall title="Profile information" description="Update your name and email address" />
 
@@ -66,6 +107,7 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                                 type="email"
                                 className="mt-1 block w-full"
                                 value={data.email}
+                                readOnly={workosConnected}
                                 onChange={(e) => setData('email', e.target.value)}
                                 required
                                 autoComplete="username"
@@ -73,6 +115,11 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                             />
 
                             <InputError className="mt-2" message={errors.email} />
+                            {workosConnected && (
+                                <p className="text-muted-foreground text-sm">
+                                    Contact your administrator to change the email on a connected account.
+                                </p>
+                            )}
                         </div>
 
                         {mustVerifyEmail && auth.user.email_verified_at === null && (

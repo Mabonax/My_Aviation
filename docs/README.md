@@ -23,3 +23,13 @@ This folder restructures the Functional Requirements Specification into implemen
 - [Implementation Checklist](04-implementation-phases/implementation-checklist.md)
 
 > This is a standalone VMT product with no affiliation with or dependency on the AB4IR ERP or LMS.
+
+## Latest integration
+
+[Aeronautical information and pre-flight briefing](10-verification/remediation/aeronautical-information-integration.md) covers FR-AIM-001 through FR-AIM-008, shared web/API behavior and the Flutter implementation at `C:\xampp\htdocs\yaw_app`.
+
+## External integrations
+
+- [ATNS AIM integration requirements](11-external-integrations/atns-aim-integration-requirements.md)
+- [ATNS capability requirements template](11-external-integrations/atns-provider-capability-template.json)
+- [FR-AIM-009 verification](10-verification/remediation/fr-aim-009-operational-acceptance.md)

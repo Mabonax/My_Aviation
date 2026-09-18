@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: 0em;
+      }
+
+      .cls-2 {
+        fill: url(#radial-gradient);
+        stroke: url(#linear-gradient);
+      }
+
+      .cls-2, .cls-3, .cls-4 {
+        stroke-width: 2px;
+      }
+
+      .cls-2, .cls-3, .cls-4, .cls-5 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-6 {
+        font-family: Montserrat-Black, Montserrat;
+        font-size: 201px;
+        font-variation-settings: 'wght' 900;
+        font-weight: 800;
+      }
+
+      .cls-6, .cls-7, .cls-8 {
+        fill: #fff;
+      }
+
+      .cls-9 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-9, .cls-10, .cls-11, .cls-12, .cls-13, .cls-14 {
+        font-family: Montserrat-Light, Montserrat;
+        font-variation-settings: 'wght' 300;
+        font-weight: 300;
+      }
+
+      .cls-15 {
+        font-family: Montserrat-Medium, Montserrat;
+        font-variation-settings: 'wght' 500;
+        font-weight: 500;
+      }
+
+      .cls-16 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-17 {
+        letter-spacing: -.05em;
+      }
+
+      .cls-10 {
+        letter-spacing: 0em;
+      }
+
+      .cls-11 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-3 {
+        fill: url(#linear-gradient-4);
+        stroke: url(#linear-gradient-5);
+      }
+
+      .cls-18 {
+        letter-spacing: 0em;
+      }
+
+      .cls-8 {
+        font-size: 50.96px;
+      }
+
+      .cls-13 {
+        letter-spacing: 0em;
+      }
+
+      .cls-4 {
+        fill: url(#linear-gradient-2);
+        stroke: url(#linear-gradient-3);
+      }
+
+      .cls-19 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-14 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-20 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-5 {
+        font-family: Montserrat-ExtraLight, Montserrat;
+        font-size: 51px;
+        font-variation-settings: 'wght' 200;
+        font-weight: 200;
+        stroke: #e6e6e6;
+      }
+    </style>
+    <radialGradient id="radial-gradient" cx="512" cy="512" fx="512" fy="512" r="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#130c0e"/>
+      <stop offset="1" stop-color="#130c0e" stop-opacity=".95"/>
+    </radialGradient>
+    <linearGradient id="linear-gradient" x1="-1" y1="512" x2="1025" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3df4fe" stop-opacity="0"/>
+      <stop offset="1" stop-color="#00aeef" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="139.12" y1="637.11" x2="139.12" y2="265.19" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000"/>
+      <stop offset="0" stop-color="#010508"/>
+      <stop offset=".02" stop-color="#091e33"/>
+      <stop offset=".04" stop-color="#11345a"/>
+      <stop offset=".06" stop-color="#17487c"/>
+      <stop offset=".09" stop-color="#1d5898"/>
+      <stop offset=".12" stop-color="#2166af"/>
+      <stop offset=".15" stop-color="#2470c1"/>
+      <stop offset=".18" stop-color="#2777cd"/>
+      <stop offset=".23" stop-color="#287bd4"/>
+      <stop offset=".35" stop-color="#297dd7"/>
+      <stop offset=".46" stop-color="#2984d9"/>
+      <stop offset=".62" stop-color="#2999e0"/>
+      <stop offset=".81" stop-color="#2abbec"/>
+      <stop offset="1" stop-color="#2be2fa"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="37.46" y1="451.51" x2="238.28" y2="451.51" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#24d2c6"/>
+      <stop offset=".5" stop-color="#2484c6"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-4" x1="247.57" y1="451.02" x2="441.63" y2="451.02" xlink:href="#linear-gradient-2"/>
+    <linearGradient id="linear-gradient-5" x1="246.57" y1="451.61" x2="445.14" y2="451.61" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2484c6"/>
+      <stop offset=".5" stop-color="#24d2c6"/>
+    </linearGradient>
+  </defs>
+  <rect class="cls-2" width="1024" height="1024"/>
+  <g>
+    <path class="cls-4" d="M125.9,564.33c15.05-15.59,33.21-34,47.57-50.22-.2-2.11-.73-1.88-1.26-.49-44.65,35.84-87.59,76.42-131.26,113.3,47.02-85.05,148.83-274.9,196.32-361.73-.01,58.59-.31,180.36-.45,239.46-1.46,8.29-16.09,16.94-21.77,22.05-50.41,39.59-105.52,77.21-160.35,110.41,22.61-24.08,48.48-48.79,71.19-72.78Z"/>
+    <path class="cls-3" d="M346.58,551.57c26.59,28.4,55.88,57.41,82.84,85.44-59.98-37.78-120.27-79.03-175.85-123.05-2.55-1.97-5.63-6.43-5.64-10.1l-.36-238.81c53.64,101.37,139.16,260,194.05,361.42-42.3-36.92-85.14-76.2-128.05-112.41-.29-.99-1.65-1.84-2.29-.84,9.91,11.91,24.67,27.11,35.29,38.35Z"/>
+    <text class="cls-5" transform="translate(456.65 637.01)"><tspan class="cls-20" x="0" y="0">U</tspan><tspan class="cls-1" x="39.68" y="0">AS O</tspan><tspan class="cls-18" x="161.57" y="0">P</tspan><tspan x="197.37" y="0">ER</tspan><tspan class="cls-19" x="268.05" y="0">A</tspan><tspan x="301.77" y="0">TIONS</tspan></text>
+    <text class="cls-6" transform="translate(408.63 579.83)"><tspan class="cls-17" x="0" y="0">Y</tspan><tspan class="cls-16" x="131.65" y="0">A</tspan><tspan x="285.62" y="0">W</tspan></text>
+    <g>
+      <rect class="cls-7" x="53.65" y="666.4" width="203.83" height="4.08" rx="1" ry="1"/>
+      <text class="cls-8" transform="translate(280.91 688.22)"><tspan class="cls-12" x="0" y="0">Plan. F</tspan><tspan class="cls-13" x="169.18" y="0">l</tspan><tspan class="cls-14" x="182.12" y="0">y</tspan><tspan class="cls-12" x="207.29" y="0">. </tspan><tspan class="cls-9" x="230.58" y="0">C</tspan><tspan class="cls-12" x="265.33" y="0">omp</tspan><tspan class="cls-10" x="385.54" y="0">l</tspan><tspan class="cls-11" x="398.48" y="0">y</tspan><tspan class="cls-12" x="423.66" y="0">.</tspan><tspan class="cls-15" x="433.85" y="0" xml:space="preserve">  </tspan></text>
+      <rect class="cls-7" x="746.67" y="666.4" width="203.83" height="4.08" rx="1" ry="1"/>
+    </g>
+  </g>
+</svg>

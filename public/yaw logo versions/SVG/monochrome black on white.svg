@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: 0em;
+      }
+
+      .cls-2 {
+        fill: url(#radial-gradient);
+        stroke: url(#linear-gradient);
+      }
+
+      .cls-2, .cls-3 {
+        stroke-miterlimit: 10;
+        stroke-width: 2px;
+      }
+
+      .cls-3 {
+        fill: url(#radial-gradient-2);
+        stroke: url(#linear-gradient-2);
+      }
+
+      .cls-4 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-5 {
+        font-family: Montserrat-ExtraLight, Montserrat;
+        font-size: 51px;
+        font-variation-settings: 'wght' 200;
+        font-weight: 200;
+      }
+
+      .cls-6 {
+        letter-spacing: 0em;
+      }
+
+      .cls-7 {
+        letter-spacing: -.05em;
+      }
+
+      .cls-8 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-9 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-10 {
+        fill: #1f2738;
+        font-family: Montserrat-Black, Montserrat;
+        font-size: 68.69px;
+        font-variation-settings: 'wght' 900;
+        font-weight: 800;
+      }
+    </style>
+    <radialGradient id="radial-gradient" cx="409.83" cy="472.5" fx="409.83" fy="472.5" r="148.69" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#130c0e"/>
+      <stop offset="1" stop-color="#130c0e" stop-opacity=".95"/>
+    </radialGradient>
+    <linearGradient id="linear-gradient" x1="308.17" y1="472.86" x2="508.99" y2="472.86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3df4fe" stop-opacity="0"/>
+      <stop offset="1" stop-color="#00aeef" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="radial-gradient-2" cx="615.31" cy="472.37" fx="615.31" fy="472.37" r="148.33" xlink:href="#radial-gradient"/>
+    <linearGradient id="linear-gradient-2" x1="517.27" y1="472.96" x2="715.85" y2="472.96" xlink:href="#linear-gradient"/>
+  </defs>
+  <g>
+    <path class="cls-2" d="M396.61,585.68c15.05-15.59,33.21-34,47.57-50.22-.2-2.11-.73-1.88-1.26-.49-44.65,35.84-87.59,76.42-131.26,113.3,47.02-85.05,148.83-274.9,196.32-361.73-.01,58.59-.31,180.36-.45,239.46-1.46,8.29-16.09,16.94-21.77,22.05-50.41,39.59-105.52,77.21-160.35,110.41,22.61-24.08,48.48-48.79,71.19-72.78Z"/>
+    <path class="cls-3" d="M617.28,572.92c26.59,28.4,55.88,57.41,82.84,85.44-59.98-37.78-120.27-79.03-175.85-123.05-2.55-1.97-5.63-6.43-5.64-10.1l-.36-238.81c53.64,101.37,139.16,260,194.05,361.42-42.3-36.92-85.14-76.2-128.05-112.41-.29-.99-1.65-1.84-2.29-.84,9.91,11.91,24.67,27.11,35.29,38.35Z"/>
+  </g>
+  <text class="cls-5" transform="translate(282.04 714.51)"><tspan class="cls-9" x="0" y="0">U</tspan><tspan class="cls-1" x="39.68" y="0">AS O</tspan><tspan class="cls-6" x="161.57" y="0">P</tspan><tspan x="197.37" y="0">ER</tspan><tspan class="cls-8" x="268.05" y="0">A</tspan><tspan x="301.77" y="0">TIONS</tspan></text>
+  <text class="cls-10" transform="translate(422.7 658.35)"><tspan class="cls-7" x="0" y="0">Y</tspan><tspan class="cls-4" x="44.99" y="0">A</tspan><tspan x="97.61" y="0">W</tspan></text>
+</svg>

@@ -97,3 +97,13 @@ gis_features
 ```
 
 ---
+
+## Aeronautical information extension (2026-09-15)
+
+The bounded `AeronauticalInformation` module follows ADR-007 and adds provider/repository contracts, raw-source preservation, normalized revisions and immutable mission briefing snapshots. Web/API share application actions and queries; Flutter consumes server decisions. The existing MissionComplianceSummary, MissionReleaseGate, ReleaseMission, GIS utilities and audit infrastructure remain the integration points.
+
+See [ADR-008](../09-decisions/ADR-008-aeronautical-source-and-briefing-evidence.md) and the [API, web route and import contract](aeronautical-information-api.md). Source authority, complete coverage, current source timestamps and the latest reviewed snapshot are required for release. Mission list compliance now evaluates live state rather than relying on stored release-gate summaries.
+
+## Provider operational conformance (2026-09-16)
+
+[ADR-009](../09-decisions/ADR-009-provider-operational-conformance.md) extends the existing provider boundary with capabilities, reviewed approval references, explicit snapshot/delta semantics, encrypted cursors, ordering protection and safe source-health reasons. No aviation decisions move into either client. [ATNS engagement requirements](../11-external-integrations/atns-aim-integration-requirements.md) define the external evidence needed before operational activation.

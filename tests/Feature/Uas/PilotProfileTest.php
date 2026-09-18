@@ -2,6 +2,7 @@
 
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
+use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Models\User;
 
 function pilotPayload(array $overrides = []): array
@@ -31,7 +32,7 @@ it('requires authentication to view pilot profiles', function () {
 });
 
 it('creates a pilot profile with regulatory traceability metadata', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'super_admin']);
 
     $response = $this->actingAs($user)->post('/pilots', pilotPayload());
 
@@ -58,7 +59,7 @@ it('creates a pilot profile with regulatory traceability metadata', function () 
 });
 
 it('updates a pilot profile through the application action contract', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'super_admin']);
     $pilot = UasPilot::query()->create([
         ...pilotPayload(),
         'regulatory_source' => 'legacy',
@@ -93,7 +94,7 @@ it('updates a pilot profile through the application action contract', function (
 });
 
 it('rejects duplicate pilot certificate numbers', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'super_admin']);
     UasPilot::query()->create([
         ...pilotPayload(),
         'regulatory_source' => 'Civil Aviation Regulations Part 71; UAS Compliance & Operations Platform FRS FR-PIL-001',
@@ -114,7 +115,7 @@ it('rejects duplicate pilot certificate numbers', function () {
 });
 
 it('validates required pilot identity fields', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'super_admin']);
 
     $this->actingAs($user)
         ->post('/pilots', pilotPayload([
@@ -130,6 +131,13 @@ it('validates required pilot identity fields', function () {
 
 it('enforces the pilot profile policy contract server side', function () {
     $user = User::factory()->create();
+    $role = UasRole::query()->create([
+        'name' => 'pilot-policy-manager',
+        'label' => 'Pilot Policy Manager',
+        'permissions' => ['pilots.view', 'pilots.create', 'pilots.update'],
+    ]);
+    $role->users()->attach($user);
+
     $pilot = UasPilot::query()->create([
         ...pilotPayload(),
         'regulatory_source' => 'Civil Aviation Regulations Part 71; UAS Compliance & Operations Platform FRS FR-PIL-001',

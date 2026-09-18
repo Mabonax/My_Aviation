@@ -6,9 +6,16 @@ use App\Domains\Uas\Pilots\Domain\Enums\PilotMedicalStatus;
 use App\Domains\Uas\Pilots\Domain\Enums\PilotProfileStatus;
 use App\Domains\Uas\Pilots\Domain\Enums\RadiotelephonyQualification;
 use App\Domains\Uas\Pilots\Domain\Enums\RpcCategory;
+use App\Domains\Uas\Documents\Domain\Models\RegulatoryDocument;
+use App\Domains\Uas\FlightLogs\Domain\Models\PilotLogEntry;
+use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class UasPilot extends Model
 {
@@ -73,6 +80,33 @@ class UasPilot extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(PilotCertificate::class, 'uas_pilot_id');
+    }
+
+    public function missions(): HasMany
+    {
+        return $this->hasMany(UasMission::class, 'uas_pilot_id');
+    }
+
+    public function logEntries(): HasMany
+    {
+        return $this->hasMany(PilotLogEntry::class, 'uas_pilot_id');
+    }
+
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(RegulatoryDocument::class, 'documentable');
+    }
+
+    public function operators(): BelongsToMany
+    {
+        return $this->belongsToMany(UasOperator::class, 'uas_operator_pilots', 'uas_pilot_id', 'uas_operator_id')
+            ->withPivot(['assignment_role', 'status', 'approved_from', 'approved_until', 'notes'])
+            ->withTimestamps();
     }
 
     public function getDisplayNameAttribute(): string

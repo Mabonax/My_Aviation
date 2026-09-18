@@ -3,18 +3,26 @@
 namespace App\Domains\Uas\Missions\Application\Queries;
 
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Models\User;
 
 class ListMissions
 {
-    public function execute(): array
+    public function execute(?User $user = null): array
     {
-        return UasMission::query()
-            ->with(['pilot', 'aircraft'])
+        $query = UasMission::query();
+
+        if ($user !== null && ! $user->hasUasPermission('missions.view')) {
+            $query->whereIn('uas_operator_id', app(CurrentOperatorContext::class)->accessibleOperatorIds($user));
+        }
+
+        return $query
+            ->with(['operator', 'pilot', 'aircraft'])
             ->latest('planned_start_at')
             ->latest()
             ->limit(50)
             ->get()
-            ->map(fn (UasMission $mission): array => MissionPresenter::toArray($mission))
+            ->map(fn (UasMission $mission): array => MissionPresenter::toArray($mission, includeComplianceDetails: false))
             ->all();
     }
 }

@@ -6,6 +6,7 @@ use App\Domains\Uas\Api\Http\Controllers\V1\AuthController;
 use App\Domains\Uas\Api\Http\Controllers\V1\CurrentUserController;
 use App\Domains\Uas\Api\Http\Controllers\V1\EvidenceDocumentController;
 use App\Domains\Uas\Api\Http\Controllers\V1\MissionController;
+use App\Domains\Uas\Api\Http\Controllers\V1\TenantOperationalController;
 use Illuminate\Support\Facades\Route;
 
 use App\Domains\Uas\Api\Http\Controllers\V1\WorkosAuthController;
@@ -33,6 +34,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('aircraft/{aircraft}', [AircraftController::class, 'show'])->name('aircraft.show');
         Route::get('evidence-documents', [EvidenceDocumentController::class, 'index'])->name('evidence-documents.index');
         Route::post('evidence-documents', [EvidenceDocumentController::class, 'store'])->name('evidence-documents.store');
+        Route::get('defects', [TenantOperationalController::class, 'defects'])->name('defects.index');
+        Route::get('batteries', [TenantOperationalController::class, 'batteries'])->name('batteries.index');
+        Route::get('gis-projects', [TenantOperationalController::class, 'gisProjects'])->name('gis-projects.index');
+        Route::get('compliance/findings', [TenantOperationalController::class, 'complianceFindings'])->name('compliance.findings');
         Route::get('missions', [MissionController::class, 'index'])->name('missions.index');
         Route::get('missions/{mission}/compliance', [MissionController::class, 'compliance'])->name('missions.compliance');
         Route::get('missions/{mission}/post-flight-propagation', [MissionController::class, 'postFlightPropagation'])->name('missions.post-flight-propagation.show');

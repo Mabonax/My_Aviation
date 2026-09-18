@@ -42,7 +42,7 @@ class CurrentOperatorContext
     {
         $operatorId = $operator instanceof UasOperator ? $operator->id : $operator;
 
-        if ($user->hasUasPermission('operators.update')) {
+        if ($this->hasGlobalOperatorAccess($user)) {
             return true;
         }
 
@@ -74,7 +74,11 @@ class CurrentOperatorContext
 
     public function hasGlobalOperatorAccess(User $user): bool
     {
-        return $user->hasUasPermission('operators.view');
+        return $user->hasAnyPlatformAuthority([
+            'platform.super_admin',
+            'platform.support',
+            'platform.tenant_admin',
+        ]);
     }
 
     private function activeMembershipQuery(User $user): Builder

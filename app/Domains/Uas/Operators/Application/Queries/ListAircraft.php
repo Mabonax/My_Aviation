@@ -13,10 +13,11 @@ class ListAircraft
 
     public function execute(User $user): array
     {
-        $operatorIds = app(CurrentOperatorContext::class)->accessibleOperatorIds($user);
+        $operatorContext = app(CurrentOperatorContext::class);
+        $operatorIds = $operatorContext->accessibleOperatorIds($user);
 
         return UasAircraft::query()
-            ->when(! $user->hasAnyUasPermission(['operators.view', 'missions.view']), function ($query) use ($operatorIds) {
+            ->when(! $operatorContext->hasGlobalOperatorAccess($user), function ($query) use ($operatorIds) {
                 $query->whereHas('operators', fn ($operators) => $operators
                     ->whereIn('uas_operators.id', $operatorIds)
                     ->where('uas_operator_aircraft.status', 'active'));

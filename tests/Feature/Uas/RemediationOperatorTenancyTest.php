@@ -346,3 +346,46 @@ it('keeps legacy operator JSON approval data readable for administrators', funct
             ->where('operator.approved_pilots.0', 11)
         );
 });
+
+
+it('does not treat operator permissions as platform-wide authority', function () {
+    $user = tenancyUser(['operators.view', 'operators.update', 'missions.view']);
+    $operatorA = tenancyOperator(['legal_entity' => 'Scoped Authority A']);
+    $operatorB = tenancyOperator(['legal_entity' => 'Scoped Authority B']);
+    $aircraftA = tenancyAircraft(['registration' => 'ZT-TR001-A']);
+    $aircraftB = tenancyAircraft(['registration' => 'ZT-TR001-B']);
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operatorA->id,
+        'user_id' => $user->id,
+        'membership_role' => 'operations_manager',
+        'status' => 'active',
+    ]);
+
+    $operatorA->aircraft()->attach($aircraftA->id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
+    $operatorB->aircraft()->attach($aircraftB->id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
+    tenancyMission($operatorA, ['mission_number' => 'MIS-TR001-A']);
+    tenancyMission($operatorB, ['mission_number' => 'MIS-TR001-B']);
+
+    $context = app(\App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext::class);
+
+    expect($context->hasGlobalOperatorAccess($user))->toBeFalse()
+        ->and($context->accessibleOperatorIds($user))->toBe([$operatorA->id]);
+
+    $this->actingAs($user)->get(route('operators.show', $operatorB))->assertForbidden();
+    $this->actingAs($user)->get(route('aircraft.index'))->assertOk()->assertSee('ZT-TR001-A')->assertDontSee('ZT-TR001-B');
+    $this->actingAs($user)->get(route('missions.index'))->assertOk()->assertSee('MIS-TR001-A')->assertDontSee('MIS-TR001-B');
+});
+
+it('grants cross-tenant access only through explicit platform authority', function () {
+    $user = tenancyUser(['platform.support']);
+    $operatorA = tenancyOperator(['legal_entity' => 'Platform Authority A']);
+    $operatorB = tenancyOperator(['legal_entity' => 'Platform Authority B']);
+
+    $context = app(\App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext::class);
+
+    expect($user->hasPlatformAuthority('platform.support'))->toBeTrue()
+        ->and($user->hasPlatformAuthority('operators.view'))->toBeFalse()
+        ->and($context->hasGlobalOperatorAccess($user))->toBeTrue()
+        ->and($context->accessibleOperatorIds($user))->toContain($operatorA->id, $operatorB->id);
+});

@@ -13,6 +13,10 @@ class UasOperatorMembership extends Model
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_ENDED = 'ended';
 
+    public const SOURCE_ADMIN = 'admin';
+    public const SOURCE_INVITATION = 'invitation';
+    public const SOURCE_JOIN_REQUEST = 'join_request';
+
     public const ROLE_ACCOUNTABLE_MANAGER = 'accountable_manager';
     public const ROLE_OPERATIONS_MANAGER = 'operations_manager';
     public const ROLE_REMOTE_PILOT = 'remote_pilot';
@@ -26,11 +30,15 @@ class UasOperatorMembership extends Model
         'user_id',
         'membership_role',
         'status',
+        'source',
+        'message',
         'joined_at',
         'left_at',
         'invited_at',
         'activated_at',
         'created_by',
+        'responded_at',
+        'responded_by',
     ];
 
     protected function casts(): array
@@ -40,6 +48,7 @@ class UasOperatorMembership extends Model
             'left_at' => 'datetime',
             'invited_at' => 'datetime',
             'activated_at' => 'datetime',
+            'responded_at' => 'datetime',
         ];
     }
 
@@ -51,6 +60,11 @@ class UasOperatorMembership extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function responder(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responded_by');
     }
 
     public function creator(): BelongsTo
@@ -68,6 +82,15 @@ class UasOperatorMembership extends Model
             self::ROLE_COMPLIANCE_OFFICER => 'Compliance Officer',
             self::ROLE_MAINTENANCE_OFFICER => 'Maintenance Officer',
             self::ROLE_ADMINISTRATOR => 'Administrator',
+        ];
+    }
+
+    public static function sources(): array
+    {
+        return [
+            self::SOURCE_ADMIN => 'Administrator',
+            self::SOURCE_INVITATION => 'Operator invitation',
+            self::SOURCE_JOIN_REQUEST => 'Pilot join request',
         ];
     }
 

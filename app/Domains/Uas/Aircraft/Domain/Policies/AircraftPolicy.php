@@ -12,21 +12,38 @@ class AircraftPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyUasPermission(['operators.view', 'missions.view'])
+        return $this->operatorContext->hasGlobalOperatorAccess($user)
             || $user->activeOperatorMemberships()->exists();
     }
 
     public function view(User $user, UasAircraft $aircraft): bool
     {
-        if ($user->hasAnyUasPermission(['operators.view', 'missions.view'])) {
+        if ($this->operatorContext->hasGlobalOperatorAccess($user)) {
             return true;
         }
 
-        $operatorIds = $this->operatorContext->accessibleOperatorIds($user);
-
         return $aircraft->operators()
-            ->whereIn('uas_operators.id', $operatorIds)
+            ->whereIn('uas_operators.id', $this->operatorContext->accessibleOperatorIds($user))
             ->where('uas_operator_aircraft.status', 'active')
             ->exists();
+    }
+
+    public function update(User $user, UasAircraft $aircraft): bool
+    {
+        if ($this->operatorContext->hasGlobalOperatorAccess($user)) {
+            return true;
+        }
+
+        return $aircraft->operators()
+            ->whereIn('uas_operators.id', $this->managedOperatorIds($user))
+            ->where('uas_operator_aircraft.status', 'active')
+            ->exists();
+    }
+
+    private function managedOperatorIds(User $user): array
+    {
+        return $user->activeOperatorMemberships()
+            ->whereIn('membership_role', \App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership::managerRoles())
+            ->pluck('uas_operator_id')->all();
     }
 }

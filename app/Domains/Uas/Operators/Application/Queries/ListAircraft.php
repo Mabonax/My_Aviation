@@ -11,13 +11,13 @@ class ListAircraft
 {
     public function __construct(private readonly AircraftReadinessSummary $readiness) {}
 
-    public function execute(User $user): array
+    public function execute(User $user, ?int $operatorId = null): array
     {
         $operatorContext = app(CurrentOperatorContext::class);
-        $operatorIds = $operatorContext->accessibleOperatorIds($user);
+        $operatorIds = $operatorId !== null ? [$operatorId] : $operatorContext->accessibleOperatorIds($user);
 
         return UasAircraft::query()
-            ->when(! $operatorContext->hasGlobalOperatorAccess($user), function ($query) use ($operatorIds) {
+            ->when($operatorId !== null || ! $operatorContext->hasGlobalOperatorAccess($user), function ($query) use ($operatorIds) {
                 $query->whereHas('operators', fn ($operators) => $operators
                     ->whereIn('uas_operators.id', $operatorIds)
                     ->where('uas_operator_aircraft.status', 'active'));
@@ -41,8 +41,6 @@ class ListAircraft
                     'battery_count' => $aircraft->batteries->whereNotNull('package_item_key')->count(),
                     'component_count' => $aircraft->components->count(),
                 ],
-            ])
-            ->values()
-            ->all();
+            ])->values()->all();
     }
 }

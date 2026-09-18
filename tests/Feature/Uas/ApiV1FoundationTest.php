@@ -220,8 +220,10 @@ it('allows a global API user to see all operators aircraft and missions', functi
     $admin = apiUser([], ['role' => 'super_admin']);
     $operatorA = apiOperator(['legal_entity' => 'Global API Operator A']);
     $operatorB = apiOperator(['legal_entity' => 'Global API Operator B']);
-    apiAircraft(['registration' => 'ZT-GLOBAL-A']);
-    apiAircraft(['registration' => 'ZT-GLOBAL-B']);
+    $globalAircraftA = apiAircraft(['registration' => 'ZT-GLOBAL-A']);
+    $globalAircraftB = apiAircraft(['registration' => 'ZT-GLOBAL-B']);
+    $operatorA->aircraft()->attach($globalAircraftA->id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
+    $operatorB->aircraft()->attach($globalAircraftB->id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
     apiMission($operatorA, ['mission_number' => 'MIS-GLOBAL-API-A']);
     apiMission($operatorB, ['mission_number' => 'MIS-GLOBAL-API-B']);
 
@@ -233,15 +235,17 @@ it('allows a global API user to see all operators aircraft and missions', functi
         ->assertJsonFragment(['legal_entity' => 'Global API Operator B'])
         ->assertJsonPath('data.operators.0.membership_status', 'global');
 
-    $this->getJson('/api/v1/aircraft')
+    $this->withHeader('X-YAW-Operator', (string) $operatorA->id)
+        ->getJson('/api/v1/aircraft')
         ->assertOk()
         ->assertJsonFragment(['registration' => 'ZT-GLOBAL-A'])
-        ->assertJsonFragment(['registration' => 'ZT-GLOBAL-B']);
+        ->assertJsonMissing(['registration' => 'ZT-GLOBAL-B']);
 
-    $this->getJson('/api/v1/missions')
+    $this->withHeader('X-YAW-Operator', (string) $operatorB->id)
+        ->getJson('/api/v1/missions')
         ->assertOk()
-        ->assertJsonFragment(['mission_number' => 'MIS-GLOBAL-API-A'])
-        ->assertJsonFragment(['mission_number' => 'MIS-GLOBAL-API-B']);
+        ->assertJsonFragment(['mission_number' => 'MIS-GLOBAL-API-B'])
+        ->assertJsonMissing(['mission_number' => 'MIS-GLOBAL-API-A']);
 });
 
 it('returns the API V1 envelope for validation failures', function () {
@@ -324,4 +328,57 @@ it('rejects an operator context outside the authenticated users active membershi
         ->getJson('/api/v1/me/operator-context')
         ->assertForbidden()
         ->assertJsonPath('error', 'operator_context_forbidden');
+});
+
+
+it('requires an operator context for operational API requests with multiple memberships', function () {
+    $user = apiUser();
+    $operatorA = apiOperator();
+    $operatorB = apiOperator();
+
+    foreach ([$operatorA, $operatorB] as $operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => 'remote_pilot',
+            'status' => 'active',
+        ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/aircraft')->assertStatus(409);
+    $this->getJson('/api/v1/missions')->assertStatus(409);
+    $this->getJson('/api/v1/defects')->assertStatus(409);
+    $this->getJson('/api/v1/batteries')->assertStatus(409);
+    $this->getJson('/api/v1/gis-projects')->assertStatus(409);
+    $this->getJson('/api/v1/compliance/findings')->assertStatus(409);
+    $this->getJson('/api/v1/evidence-documents')->assertStatus(409);
+});
+
+it('does not expose a mission from another active membership while operating in the selected tenant', function () {
+    $user = apiUser();
+    $operatorA = apiOperator();
+    $operatorB = apiOperator();
+    $missionA = apiMission($operatorA);
+    $missionB = apiMission($operatorB);
+
+    foreach ([$operatorA, $operatorB] as $operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => 'remote_pilot',
+            'status' => 'active',
+        ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->withHeader('X-YAW-Operator', (string) $operatorA->id)
+        ->getJson('/api/v1/missions/'.$missionA->id)
+        ->assertOk();
+
+    $this->withHeader('X-YAW-Operator', (string) $operatorA->id)
+        ->getJson('/api/v1/missions/'.$missionB->id)
+        ->assertNotFound();
 });

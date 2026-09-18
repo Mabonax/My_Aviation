@@ -23,6 +23,10 @@ class EvidenceOperatorResolver
         if ($model instanceof UasAircraft) {
             $model->loadMissing('operators');
 
+            if ($fallbackOperatorId !== null && $model->operators->contains('id', $fallbackOperatorId)) {
+                return $fallbackOperatorId;
+            }
+
             return $model->operators->first()?->id ?? $fallbackOperatorId;
         }
 

@@ -8,13 +8,14 @@ use App\Models\User;
 
 class ListEvidenceDocuments
 {
-    public function execute(User $user): array
+    public function execute(User $user, ?int $operatorId = null): array
     {
-        $operatorIds = app(CurrentOperatorContext::class)->accessibleOperatorIds($user);
+        $operatorContext = app(CurrentOperatorContext::class);
+        $operatorIds = $operatorId !== null ? [$operatorId] : $operatorContext->accessibleOperatorIds($user);
 
         return EvidenceDocument::query()
             ->with(['links.evidenceable', 'operator', 'uploader'])
-            ->when(! $user->hasAnyUasPermission(['documents.view', 'operators.view']), function ($query) use ($operatorIds) {
+            ->when($operatorId !== null || ! $operatorContext->hasGlobalOperatorAccess($user), function ($query) use ($operatorIds) {
                 $query->whereIn('uas_operator_id', $operatorIds);
             })
             ->latest()

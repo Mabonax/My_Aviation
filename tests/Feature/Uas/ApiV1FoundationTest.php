@@ -255,3 +255,73 @@ it('returns the API V1 envelope for validation failures', function () {
         ->assertJsonPath('meta.contract_version', 'v1.0')
         ->assertJsonValidationErrors(['email', 'password']);
 });
+
+
+it('resolves a single active operator automatically and exposes the canonical header', function () {
+    $user = apiUser();
+    $operator = apiOperator(['legal_entity' => 'Context Operator']);
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operator->id,
+        'user_id' => $user->id,
+        'membership_role' => 'remote_pilot',
+        'status' => 'active',
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/me/operator-context')
+        ->assertOk()
+        ->assertJsonPath('data.operator_context.operator.id', $operator->id)
+        ->assertJsonPath('data.operator_context.membership.role', 'remote_pilot')
+        ->assertJsonPath('data.operator_context.selection_required', false)
+        ->assertJsonPath('data.operator_context.header', 'X-YAW-Operator');
+});
+
+it('requires explicit selection when a user belongs to multiple operators', function () {
+    $user = apiUser();
+    $operatorA = apiOperator(['legal_entity' => 'Context A']);
+    $operatorB = apiOperator(['legal_entity' => 'Context B']);
+
+    foreach ([$operatorA, $operatorB] as $operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => 'remote_pilot',
+            'status' => 'active',
+        ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/me/operator-context')
+        ->assertOk()
+        ->assertJsonPath('data.operator_context.operator', null)
+        ->assertJsonPath('data.operator_context.selection_required', true);
+
+    $this->withHeader('X-YAW-Operator', (string) $operatorB->id)
+        ->getJson('/api/v1/me/operator-context')
+        ->assertOk()
+        ->assertJsonPath('data.operator_context.operator.id', $operatorB->id)
+        ->assertJsonPath('data.operator_context.selection_required', false);
+});
+
+it('rejects an operator context outside the authenticated users active memberships', function () {
+    $user = apiUser();
+    $allowed = apiOperator();
+    $forbidden = apiOperator();
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $allowed->id,
+        'user_id' => $user->id,
+        'membership_role' => 'remote_pilot',
+        'status' => 'active',
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->withHeader('X-YAW-Operator', (string) $forbidden->id)
+        ->getJson('/api/v1/me/operator-context')
+        ->assertForbidden()
+        ->assertJsonPath('error', 'operator_context_forbidden');
+});

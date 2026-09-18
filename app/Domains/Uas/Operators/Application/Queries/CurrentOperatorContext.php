@@ -9,6 +9,49 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CurrentOperatorContext
 {
+    public const API_HEADER = 'X-YAW-Operator';
+
+    public function requestedOperatorId(\Illuminate\Http\Request $request): ?int
+    {
+        $value = $request->header(self::API_HEADER);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+    }
+
+    public function resolveFromRequest(\Illuminate\Http\Request $request): ?UasOperator
+    {
+        $user = $request->user();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        return $this->resolve($user, $this->requestedOperatorId($request));
+    }
+
+    public function requireFromRequest(\Illuminate\Http\Request $request): UasOperator
+    {
+        $user = $request->user();
+
+        abort_unless($user instanceof User, 401);
+
+        $requestedId = $this->requestedOperatorId($request);
+        $operator = $this->resolve($user, $requestedId);
+
+        if ($requestedId !== null && $operator === null) {
+            abort(403, 'The requested YAW operator context is not accessible.');
+        }
+
+        if ($operator === null) {
+            abort(409, 'An active YAW operator context is required.');
+        }
+
+        return $operator;
+    }
     public function resolve(User $user, ?int $operatorId = null): ?UasOperator
     {
         if ($this->hasGlobalOperatorAccess($user)) {

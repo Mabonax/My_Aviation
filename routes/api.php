@@ -26,6 +26,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('me', [CurrentUserController::class, 'me'])->name('me');
         Route::get('me/pilot', [CurrentUserController::class, 'pilot'])->name('me.pilot');
         Route::get('me/operators', [CurrentUserController::class, 'operators'])->name('me.operators');
+        Route::get('me/operator-context', [CurrentUserController::class, 'operatorContext'])->name('me.operator-context');
         Route::get('aircraft-catalogue', [AircraftCatalogueController::class, 'index'])->name('aircraft-catalogue.index');
         Route::get('aircraft-catalogue/{aircraftModel}', [AircraftCatalogueController::class, 'show'])->name('aircraft-catalogue.show');
         Route::get('aircraft', [AircraftController::class, 'index'])->name('aircraft.index');

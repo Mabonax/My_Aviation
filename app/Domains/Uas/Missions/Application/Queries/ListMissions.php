@@ -12,8 +12,12 @@ class ListMissions
     {
         $query = UasMission::query();
 
-        if ($user !== null && ! $user->hasUasPermission('missions.view')) {
-            $query->whereIn('uas_operator_id', app(CurrentOperatorContext::class)->accessibleOperatorIds($user));
+        if ($user !== null) {
+            $operatorContext = app(CurrentOperatorContext::class);
+
+            if (! $operatorContext->hasGlobalOperatorAccess($user)) {
+                $query->whereIn('uas_operator_id', $operatorContext->accessibleOperatorIds($user));
+            }
         }
 
         return $query

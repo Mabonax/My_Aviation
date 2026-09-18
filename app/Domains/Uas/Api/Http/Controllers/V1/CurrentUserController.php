@@ -36,6 +36,39 @@ class CurrentUserController extends Controller
         ]);
     }
 
+    public function operatorContext(Request $request, CurrentOperatorContext $operatorContext): JsonResponse
+    {
+        $user = $request->user();
+        $requestedId = $operatorContext->requestedOperatorId($request);
+        $operator = $operatorContext->resolve($user, $requestedId);
+
+        if ($requestedId !== null && $operator === null) {
+            return ApiResponse::error('operator_context_forbidden', 'The requested YAW operator context is not accessible.', 403);
+        }
+
+        $membership = $operator && ! $operatorContext->hasGlobalOperatorAccess($user)
+            ? $user->activeOperatorMemberships()->where('uas_operator_id', $operator->id)->first()
+            : null;
+
+        return ApiResponse::success([
+            'operator_context' => [
+                'operator' => $operator ? [
+                    'id' => $operator->id,
+                    'legal_entity' => $operator->legal_entity,
+                    'trading_name' => $operator->trading_name,
+                    'uasoc_number' => $operator->uasoc_number,
+                ] : null,
+                'membership' => $membership ? [
+                    'role' => $membership->membership_role,
+                    'status' => $membership->status,
+                ] : null,
+                'platform_authority' => $operatorContext->hasGlobalOperatorAccess($user),
+                'selection_required' => $operator === null && count($operatorContext->accessibleOperatorIds($user)) > 1,
+                'header' => CurrentOperatorContext::API_HEADER,
+            ],
+        ]);
+    }
+
     public function operators(Request $request, CurrentOperatorContext $operatorContext): JsonResponse
     {
         $user = $request->user();

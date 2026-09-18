@@ -10,6 +10,7 @@ use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class ReportAircraftDefect
@@ -29,6 +30,9 @@ class ReportAircraftDefect
     public function execute(array $data, User $actor, ?UasMission $mission = null, ?string $ipAddress = null, ?string $userAgent = null): UasAircraftDefect
     {
         return DB::transaction(function () use ($data, $actor, $mission, $ipAddress, $userAgent): UasAircraftDefect {
+            if ($mission) {
+                Gate::forUser($actor)->authorize('update', $mission);
+            }
             $aircraftId = $mission?->uas_aircraft_id ?? $data['uas_aircraft_id'] ?? null;
 
             if (! $aircraftId) {
@@ -40,6 +44,7 @@ class ReportAircraftDefect
             }
 
             $aircraft = UasAircraft::query()->findOrFail($aircraftId);
+            Gate::forUser($actor)->authorize('view', $aircraft);
             $serviceabilityImpact = $this->impact->impactForSeverity($data['severity']);
 
             $defect = UasAircraftDefect::query()->create([

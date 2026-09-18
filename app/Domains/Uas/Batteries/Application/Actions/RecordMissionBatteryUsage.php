@@ -10,6 +10,7 @@ use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class RecordMissionBatteryUsage
@@ -19,6 +20,7 @@ class RecordMissionBatteryUsage
     public function execute(UasMission $mission, array $data, User $actor, ?string $ipAddress = null, ?string $userAgent = null): UasMissionBatteryUsage
     {
         return DB::transaction(function () use ($mission, $data, $actor, $ipAddress, $userAgent): UasMissionBatteryUsage {
+            Gate::forUser($actor)->authorize('update', $mission);
             $battery = UasBattery::query()->findOrFail($data['uas_battery_id']);
 
             if ($mission->uas_aircraft_id !== null && $battery->compatible_uas_aircraft_id !== null && (int) $mission->uas_aircraft_id !== (int) $battery->compatible_uas_aircraft_id) {

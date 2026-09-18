@@ -4,6 +4,8 @@ namespace App\Domains\Uas\Geography\Application\Actions;
 
 use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission;
+use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use Illuminate\Support\Facades\Gate;
 use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
@@ -16,6 +18,15 @@ class AssignMissionToGisProject
     public function execute(UasGisProject $project, array $data, User $actor, ?string $ipAddress = null, ?string $userAgent = null): UasGisProjectMission
     {
         return DB::transaction(function () use ($project, $data, $actor, $ipAddress, $userAgent): UasGisProjectMission {
+            Gate::forUser($actor)->authorize('update', $project);
+            $mission = UasMission::query()->findOrFail($data['uas_mission_id']);
+            Gate::forUser($actor)->authorize('view', $mission);
+
+            $projectOperatorIds = $project->projectMissions()->with('mission')->get()->pluck('mission.uas_operator_id')->filter()->unique();
+            if ($projectOperatorIds->isNotEmpty() && ! $projectOperatorIds->contains((int) $mission->uas_operator_id)) {
+                abort(403, 'A GIS project cannot be linked across operator tenants.');
+            }
+
             $assignment = UasGisProjectMission::query()->create([
                 'uas_gis_project_id' => $project->id,
                 'uas_mission_id' => $data['uas_mission_id'],

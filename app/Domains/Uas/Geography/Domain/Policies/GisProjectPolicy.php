@@ -2,24 +2,52 @@
 
 namespace App\Domains\Uas\Geography\Domain\Policies;
 
-use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 
 class GisProjectPolicy
 {
-    public function viewAny(User $user): bool { return $this->hasPermission($user, 'gis.view'); }
-    public function view(User $user, UasGisProject $project): bool { return $this->hasPermission($user, 'gis.view'); }
-    public function create(User $user): bool { return $this->hasPermission($user, 'gis.create'); }
-    public function update(User $user, UasGisProject $project): bool { return $this->hasPermission($user, 'gis.update') && ! in_array($project->lifecycle_state, ['closed', 'cancelled'], true); }
+    public function __construct(private readonly CurrentOperatorContext $operatorContext) {}
+
+    public function viewAny(User $user): bool
+    {
+        return $this->operatorContext->hasGlobalOperatorAccess($user) || $user->activeOperatorMemberships()->exists();
+    }
+
+    public function view(User $user, UasGisProject $project): bool
+    {
+        return $this->operatorContext->hasGlobalOperatorAccess($user)
+            || $project->projectMissions()->whereHas('mission', fn ($mission) =>
+                $mission->whereIn('uas_operator_id', $this->operatorContext->accessibleOperatorIds($user))
+            )->exists();
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->operatorContext->hasGlobalOperatorAccess($user)
+            || $this->managedOperatorIds($user) !== [];
+    }
+
+    public function update(User $user, UasGisProject $project): bool
+    {
+        if (in_array($project->lifecycle_state, ['closed', 'cancelled'], true)) {
+            return false;
+        }
+        if ($this->operatorContext->hasGlobalOperatorAccess($user)) {
+            return true;
+        }
+        $managed = $this->managedOperatorIds($user);
+        return $project->projectMissions()->whereHas('mission', fn ($mission) => $mission->whereIn('uas_operator_id', $managed))->exists();
+    }
+
     public function delete(User $user, UasGisProject $project): bool { return false; }
 
-    private function hasPermission(User $user, string $permission): bool
+    private function managedOperatorIds(User $user): array
     {
-        return UasRole::query()
-            ->whereHas('users', fn ($query) => $query->whereKey($user->id))
-            ->get()
-            ->flatMap(fn (UasRole $role): array => $role->permissions ?? [])
-            ->contains($permission);
+        return $user->activeOperatorMemberships()
+            ->whereIn('membership_role', UasOperatorMembership::managerRoles())
+            ->pluck('uas_operator_id')->all();
     }
 }

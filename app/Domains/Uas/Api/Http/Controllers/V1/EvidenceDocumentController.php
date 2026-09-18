@@ -7,6 +7,7 @@ use App\Domains\Uas\Documents\Application\Actions\StoreEvidenceDocument;
 use App\Domains\Uas\Documents\Application\Queries\EvidenceDocumentPresenter;
 use App\Domains\Uas\Documents\Application\Queries\ListEvidenceDocuments;
 use App\Domains\Uas\Documents\Application\Support\EvidenceTargetResolver;
+use App\Domains\Uas\Documents\Application\Support\EvidenceOperatorResolver;
 use App\Domains\Uas\Documents\Domain\Models\EvidenceDocument;
 use App\Domains\Uas\Documents\Http\Requests\StoreEvidenceDocumentRequest;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
@@ -28,7 +29,7 @@ class EvidenceDocumentController extends Controller
         ]);
     }
 
-    public function store(StoreEvidenceDocumentRequest $request, StoreEvidenceDocument $storeDocument, EvidenceTargetResolver $targets, CurrentOperatorContext $context): JsonResponse
+    public function store(StoreEvidenceDocumentRequest $request, StoreEvidenceDocument $storeDocument, EvidenceTargetResolver $targets, EvidenceOperatorResolver $operatorResolver, CurrentOperatorContext $context): JsonResponse
     {
         $operator = $context->requireFromRequest($request);
         if ($request->integer('uas_operator_id') && $request->integer('uas_operator_id') !== $operator->id) {
@@ -37,6 +38,10 @@ class EvidenceDocumentController extends Controller
 
         $target = $targets->resolve($request->validated('evidenceable_type'), $request->integer('evidenceable_id') ?: null)
             ?? UasOperator::query()->find($operator->id);
+
+        if ($target && $operatorResolver->operatorIdFor($target, $operator->id) !== $operator->id) {
+            abort(403, 'The evidence target is outside the active operator context.');
+        }
 
         Gate::authorize('create', [EvidenceDocument::class, $target]);
 

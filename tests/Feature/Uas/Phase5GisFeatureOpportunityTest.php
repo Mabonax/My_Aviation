@@ -8,11 +8,30 @@ use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission;
 use App\Domains\Uas\Geography\Domain\Models\UasGisSpatialLayer;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function gisFeatureUser(array $permissions = ['gis.view', 'gis.create', 'gis.update']): User
+function gisFeatureOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'gisFeature Operator (Pty) Ltd',
+        'trading_name' => 'gisFeature Operator',
+        'status' => 'active',
+        'accountable_manager' => 'GIS Accountable Manager',
+        'responsible_person_flight_operations' => 'GIS Flight Ops',
+        'responsible_person_aircraft' => 'GIS Aircraft Lead',
+        'regulatory_source' => 'TR-010 GIS tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'GIS tenant isolation verification',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function gisFeatureUser(array $permissions = ['gis.view', 'gis.create', 'gis.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -24,10 +43,21 @@ function gisFeatureUser(array $permissions = ['gis.view', 'gis.create', 'gis.upd
 
     $role->users()->attach($user);
 
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
+
     return $user;
 }
 
-function gisFeatureLayer(User $user): UasGisSpatialLayer
+function gisFeatureLayer(User $user, UasOperator $operator): UasGisSpatialLayer
 {
     $project = UasGisProject::query()->create([
         'project_code' => 'GIS-FEAT-001',
@@ -44,6 +74,7 @@ function gisFeatureLayer(User $user): UasGisSpatialLayer
     ]);
 
     $mission = UasMission::query()->create([
+        'uas_operator_id' => $operator->id,
         'mission_number' => 'MIS-FEAT-001',
         'purpose' => 'Industrial corridor feature capture',
         'location' => 'Industrial corridor',
@@ -126,16 +157,18 @@ function gisFeaturePayload(array $overrides = []): array
 it('requires GIS update permission to capture layer features', function () {
     $this->withoutVite();
 
-    $viewer = gisFeatureUser(['gis.view']);
-    $layer = gisFeatureLayer($viewer);
+    $operator = gisFeatureOperator();
+    $viewer = gisFeatureUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    $layer = gisFeatureLayer($viewer, $operator);
 
     $this->actingAs($viewer)->get("/gis-layers/{$layer->id}/features/create")->assertForbidden();
     $this->actingAs($viewer)->post("/gis-layers/{$layer->id}/features", gisFeaturePayload())->assertForbidden();
 });
 
 it('captures a GIS feature with opportunity finding records and FR-GIS-004 audit evidence', function () {
-    $user = gisFeatureUser();
-    $layer = gisFeatureLayer($user);
+    $operator = gisFeatureOperator();
+    $user = gisFeatureUser([], $operator);
+    $layer = gisFeatureLayer($user, $operator);
 
     $this->actingAs($user)
         ->post("/gis-layers/{$layer->id}/features", gisFeaturePayload())
@@ -158,8 +191,9 @@ it('captures a GIS feature with opportunity finding records and FR-GIS-004 audit
 });
 
 it('validates feature classification geometry confidence and opportunity metadata', function () {
-    $user = gisFeatureUser();
-    $layer = gisFeatureLayer($user);
+    $operator = gisFeatureOperator();
+    $user = gisFeatureUser([], $operator);
+    $layer = gisFeatureLayer($user, $operator);
     UasGisFeature::query()->create([
         'uas_gis_spatial_layer_id' => $layer->id,
         'feature_code' => 'FEAT-2026-001',
@@ -198,8 +232,9 @@ it('validates feature classification geometry confidence and opportunity metadat
 it('exposes feature creation options and project intelligence summaries through Inertia', function () {
     $this->withoutVite();
 
-    $user = gisFeatureUser();
-    $layer = gisFeatureLayer($user);
+    $operator = gisFeatureOperator();
+    $user = gisFeatureUser([], $operator);
+    $layer = gisFeatureLayer($user, $operator);
 
     $this->actingAs($user)
         ->get("/gis-layers/{$layer->id}/features/create")

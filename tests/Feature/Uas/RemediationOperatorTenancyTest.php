@@ -133,7 +133,7 @@ function tenancyMissionPayload(array $overrides = []): array
 }
 
 it('lets an administrator add a user to an operator with a validated membership role', function () {
-    $admin = tenancyUser(['operators.view', 'operators.update']);
+    $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator(['legal_entity' => 'Membership Operator']);
 

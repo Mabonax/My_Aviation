@@ -197,6 +197,7 @@ it('exposes operator profile screens through Inertia', function () {
         'approved_pilots' => [$pilot->id],
     ]);
     $user = operatorUser([], $operator);
+    $platformCreator = operatorUser(['operators.view', 'operators.create']);
 
     $this->actingAs($user)
         ->get('/operators')
@@ -206,7 +207,7 @@ it('exposes operator profile screens through Inertia', function () {
             ->where('operators.0.legal_entity', 'Visible Operator')
         );
 
-    $this->actingAs($user)
+    $this->actingAs($platformCreator)
         ->get('/operators/create')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page

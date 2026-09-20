@@ -14,6 +14,7 @@ use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
+use App\Domains\Uas\Operators\Application\Actions\ApprovePilotForOperator;
 use App\Models\User;
 
 function missionPayload(array $overrides = []): array
@@ -86,7 +87,7 @@ function missionUser(array $permissions = ['missions.view', 'missions.create'], 
     return $user;
 }
 
-function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', string $certificateStatus = 'valid', ?string $certificateExpiry = null, ?UasOperator $operator = null): array
+function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', string $certificateStatus = 'valid', ?string $certificateExpiry = null, ?UasOperator $operator = null, ?User $operatorUser = null): array
 {
     $pilot = UasPilot::query()->create([
         'first_name' => 'Anele',
@@ -134,6 +135,16 @@ function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', 
             'assignment_role' => 'operated_aircraft',
             'status' => 'active',
         ]);
+
+        if ($operatorUser) {
+            $pilot->forceFill(['user_id' => $operatorUser->id])->save();
+            app(ApprovePilotForOperator::class)->execute(
+                $operator,
+                $pilot,
+                UasOperatorMembership::ROLE_REMOTE_PILOT,
+                $operatorUser,
+            );
+        }
     }
 
     AircraftApproval::query()->create([
@@ -161,7 +172,7 @@ it('creates a mission record with lifecycle, release gate and audit evidence', f
 
     $operator = missionOperator();
     $user = missionUser([], $operator);
-    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator);
+    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator, operatorUser: $user);
 
     $response = $this->actingAs($user)->post('/missions', missionPayload([
         'uas_operator_id' => $operator->id,
@@ -219,7 +230,7 @@ it('distinguishes regulatory release blocks from internal policy attention', fun
 it('captures mission map geometry for FR-GEO-001', function () {
     $operator = missionOperator();
     $user = missionUser([], $operator);
-    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator);
+    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator, operatorUser: $user);
 
     $response = $this->actingAs($user)->post('/missions', missionPayload([
         'uas_operator_id' => $operator->id,

@@ -7,7 +7,20 @@ use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
 function tr005Operator(string $name): UasOperator {
-    return UasOperator::query()->create(['legal_entity'=>$name,'trading_name'=>$name,'operator_code'=>strtoupper(substr(md5($name),0,8)),'status'=>'active']);
+    return UasOperator::query()->create([
+        'legal_entity' => $name,
+        'trading_name' => $name,
+        'operator_code' => strtoupper(substr(md5($name), 0, 8)),
+        'status' => 'active',
+        'accountable_manager' => 'TR-005 Accountable Manager',
+        'responsible_person_flight_operations' => 'TR-005 Flight Operations',
+        'responsible_person_aircraft' => 'TR-005 Aircraft Lead',
+        'regulatory_source' => 'TR-005 operator membership lifecycle fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Operator membership lifecycle verification.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
 }
 
 it('supports invitation acceptance and decline by the invited user', function () {

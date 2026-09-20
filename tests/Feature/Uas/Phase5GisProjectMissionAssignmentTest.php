@@ -4,11 +4,30 @@ use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function gisMissionAssignmentUser(array $permissions = ['gis.view', 'gis.create', 'gis.update']): User
+function gisMissionAssignmentOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'gisMissionAssignment Operator (Pty) Ltd',
+        'trading_name' => 'gisMissionAssignment Operator',
+        'status' => 'active',
+        'accountable_manager' => 'GIS Accountable Manager',
+        'responsible_person_flight_operations' => 'GIS Flight Ops',
+        'responsible_person_aircraft' => 'GIS Aircraft Lead',
+        'regulatory_source' => 'TR-010 GIS tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'GIS tenant isolation verification',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function gisMissionAssignmentUser(array $permissions = ['gis.view', 'gis.create', 'gis.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -19,6 +38,17 @@ function gisMissionAssignmentUser(array $permissions = ['gis.view', 'gis.create'
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -41,10 +71,11 @@ function gisMissionProject(User $user, array $overrides = []): UasGisProject
     ]);
 }
 
-function gisOperationalMission(array $overrides = []): UasMission
+function gisOperationalMission(?UasOperator $operator = null, array $overrides = []): UasMission
 {
     return UasMission::query()->create([
         'mission_number' => 'MIS-GIS-001',
+        'uas_operator_id' => $operator?->id,
         'purpose' => 'Watercourse imagery capture',
         'client_project' => 'Regional mapping programme',
         'location' => 'Watercourse corridor',
@@ -85,18 +116,20 @@ function gisMissionAssignmentPayload(UasMission $mission, array $overrides = [])
 it('requires GIS update permission to assign missions to projects', function () {
     $this->withoutVite();
 
-    $viewer = gisMissionAssignmentUser(['gis.view']);
+    $operator = gisMissionAssignmentOperator();
+    $viewer = gisMissionAssignmentUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
     $project = gisMissionProject($viewer);
-    $mission = gisOperationalMission();
+    $mission = gisOperationalMission($operator);
 
     $this->actingAs($viewer)->get("/gis-projects/{$project->id}/missions/create")->assertForbidden();
     $this->actingAs($viewer)->post("/gis-projects/{$project->id}/missions", gisMissionAssignmentPayload($mission))->assertForbidden();
 });
 
 it('assigns an operational mission to a GIS project with mapping evidence intent', function () {
-    $user = gisMissionAssignmentUser();
+    $operator = gisMissionAssignmentOperator();
+    $user = gisMissionAssignmentUser([], $operator);
     $project = gisMissionProject($user);
-    $mission = gisOperationalMission();
+    $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)
         ->post("/gis-projects/{$project->id}/missions", gisMissionAssignmentPayload($mission))
@@ -118,10 +151,11 @@ it('assigns an operational mission to a GIS project with mapping evidence intent
 });
 
 it('prevents one mission being assigned to multiple GIS projects', function () {
-    $user = gisMissionAssignmentUser();
+    $operator = gisMissionAssignmentOperator();
+    $user = gisMissionAssignmentUser([], $operator);
     $project = gisMissionProject($user);
     $otherProject = gisMissionProject($user, ['project_code' => 'GIS-MSN-002']);
-    $mission = gisOperationalMission();
+    $mission = gisOperationalMission($operator);
 
     UasGisProjectMission::query()->create([
         'uas_gis_project_id' => $project->id,
@@ -135,9 +169,10 @@ it('prevents one mission being assigned to multiple GIS projects', function () {
 });
 
 it('validates mapping objective capture plan outputs and field verification state', function () {
-    $user = gisMissionAssignmentUser();
+    $operator = gisMissionAssignmentOperator();
+    $user = gisMissionAssignmentUser([], $operator);
     $project = gisMissionProject($user);
-    $mission = gisOperationalMission();
+    $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)
         ->post("/gis-projects/{$project->id}/missions", gisMissionAssignmentPayload($mission, [
@@ -153,9 +188,10 @@ it('validates mapping objective capture plan outputs and field verification stat
 it('exposes assignable missions and project mission summaries through Inertia', function () {
     $this->withoutVite();
 
-    $user = gisMissionAssignmentUser();
+    $operator = gisMissionAssignmentOperator();
+    $user = gisMissionAssignmentUser([], $operator);
     $project = gisMissionProject($user);
-    $mission = gisOperationalMission();
+    $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)
         ->get("/gis-projects/{$project->id}/missions/create")

@@ -91,8 +91,8 @@ it('enforces operator scope for all briefing endpoints', function () {
     $this->getJson("/api/v1/missions/{$own->id}/briefing")->assertOk();
     $id = $this->postJson("/api/v1/missions/{$own->id}/briefing")->assertCreated()->json('data.briefing.id');
     $this->getJson("/api/v1/missions/{$foreign->id}/briefing")->assertNotFound();
-    $this->postJson("/api/v1/missions/{$foreign->id}/briefing")->assertNotFound();
-    $this->postJson("/api/v1/missions/{$foreign->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertNotFound();
+    $this->postJson("/api/v1/missions/{$foreign->id}/briefing")->assertForbidden();
+    $this->postJson("/api/v1/missions/{$foreign->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertForbidden();
 });
 
 it('does not allow public source summaries to satisfy the required operational source', function () {

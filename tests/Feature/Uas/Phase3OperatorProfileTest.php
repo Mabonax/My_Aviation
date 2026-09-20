@@ -3,12 +3,13 @@
 use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Aircraft\Domain\Models\UasAircraft;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function operatorUser(array $permissions = ['operators.view', 'operators.create', 'operators.update']): User
+function operatorUser(array $permissions = ['operators.view', 'operators.create', 'operators.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_ADMINISTRATOR): User
 {
     $user = User::factory()->create();
 
@@ -19,6 +20,17 @@ function operatorUser(array $permissions = ['operators.view', 'operators.create'
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -93,7 +105,7 @@ it('requires operator permissions for operator profile routes', function () {
     $this->withoutVite();
 
     $operator = storedOperator();
-    $viewer = operatorUser(['operators.view']);
+    $viewer = operatorUser(['operators.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get('/operators')->assertOk();
     $this->actingAs($viewer)->get("/operators/{$operator->id}")->assertOk();
@@ -135,8 +147,8 @@ it('creates an operator profile with FR-OPS-001 traceability and audit evidence'
 });
 
 it('updates an operator profile and records an audit trail', function () {
-    $user = operatorUser();
     $operator = storedOperator(['legal_entity' => 'Original Operator', 'uasoc_number' => 'UASOC-UPD']);
+    $user = operatorUser([], $operator);
 
     $this->actingAs($user)
         ->put("/operators/{$operator->id}", operatorPayload([
@@ -177,7 +189,6 @@ it('validates operator identity, certificate dates and approval references', fun
 it('exposes operator profile screens through Inertia', function () {
     $this->withoutVite();
 
-    $user = operatorUser();
     $aircraft = operatorAircraft();
     $pilot = operatorPilot();
     $operator = storedOperator([
@@ -185,6 +196,7 @@ it('exposes operator profile screens through Inertia', function () {
         'approved_aircraft' => [$aircraft->id],
         'approved_pilots' => [$pilot->id],
     ]);
+    $user = operatorUser([], $operator);
 
     $this->actingAs($user)
         ->get('/operators')

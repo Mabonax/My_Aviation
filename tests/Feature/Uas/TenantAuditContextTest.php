@@ -11,8 +11,7 @@ function tr009Operator(string $name): UasOperator {
     return UasOperator::query()->create([
         'legal_entity'=>$name,
         'trading_name'=>$name,
-        'operator_code'=>strtoupper(substr(md5($name),0,8)),
-        'status'=>'active',
+        'status'=>'active','accountable_manager'=>'Test Manager','responsible_person_flight_operations'=>'Test Flight Ops','responsible_person_aircraft'=>'Test Aircraft','regulatory_source'=>'Tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant verification','responsible_role'=>'Accountable Manager',
     ]);
 }
 
@@ -21,7 +20,7 @@ it('records the selected operator on audit evidence', function () {
     $operator=tr009Operator('TR009 Alpha');
     UasOperatorMembership::query()->create([
         'uas_operator_id'=>$operator->id,'user_id'=>$user->id,
-        'membership_role'=>'operator_admin','status'=>'active','source'=>'admin',
+        'membership_role'=>'operator_admin','status'=>'active' ,'source'=>'admin',
     ]);
     $this->actingAs($user)->withSession(['yaw_operator_id'=>$operator->id]);
 
@@ -32,12 +31,12 @@ it('records the selected operator on audit evidence', function () {
 
     $this->assertDatabaseHas('uas_audit_entries',[
         'action'=>'tr009.test','uas_operator_id'=>$operator->id,
-        'operator_context_source'=>'web_session',
+        'operator_context_source'=>'auditable',
     ]);
 });
 
 it('does not guess a tenant for an aircraft assigned to multiple operators without active context', function () {
-    $aircraft=UasAircraft::factory()->create();
+    $aircraft=UasAircraft::query()->create(['registration'=>'ZT-TR009','manufacturer'=>'YAW Test','model'=>'Audit','serial_number'=>'TR009-SN','operational_status'=>'serviceable']);
     $a=tr009Operator('TR009 Multi A'); $b=tr009Operator('TR009 Multi B');
     $aircraft->operators()->attach($a->id,['status'=>'active']);
     $aircraft->operators()->attach($b->id,['status'=>'active']);

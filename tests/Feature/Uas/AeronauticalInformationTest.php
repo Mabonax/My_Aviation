@@ -13,6 +13,7 @@ use App\Domains\Uas\AeronauticalInformation\Domain\Models\ProviderSync;
 use App\Domains\Uas\Missions\Application\Actions\ReleaseMission;
 use App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
+use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
@@ -20,6 +21,19 @@ use Laravel\Sanctum\Sanctum;
 beforeEach(function () {
     $this->withoutVite();
 });
+
+function aimPlatformAdmin(): User
+{
+    $user = User::factory()->create();
+    $role = UasRole::query()->create([
+        'name' => 'platform_super_admin_'.str()->random(8),
+        'label' => 'Platform Super Admin',
+        'permissions' => ['platform.super_admin'],
+    ]);
+    $role->users()->attach($user);
+
+    return $user;
+}
 
 it('preserves source data and imports duplicate records idempotently', function () {
     $record = aimRecord();
@@ -87,7 +101,7 @@ it('does not compare flight levels with AGL or infer missing geometry as clear',
 });
 
 it('distinguishes complete empty data from unavailable and stale sources', function () {
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $mission = aimMission();
     $unavailable = app(GenerateMissionBriefing::class)->execute($mission, $actor);
     expect($unavailable->overall_status)->toBe('red')->and($unavailable->snapshot['empty_data_message'])->toContain('unresolved');
@@ -107,7 +121,7 @@ it('requires spatial and temporal coverage even when a provider returns zero not
 
 it('stores immutable snapshots and requires acknowledgement of warnings', function () {
     aimSync([aimRecord(), aimRecord(['source_identifier' => 'TEST-FAR', 'normalized' => ['latitude' => -25]])]);
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $mission = aimMission();
     $briefing = app(GenerateMissionBriefing::class)->execute($mission, $actor);
     $original = $briefing->refresh()->toArray();
@@ -122,7 +136,7 @@ it('stores immutable snapshots and requires acknowledgement of warnings', functi
 
 it('rejects acknowledgement of hard blockers and records blocked release attempts', function () {
     aimSync([aimRecord(['normalized' => ['hazard' => 'restriction']])]);
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $mission = aimMission();
     $briefing = app(GenerateMissionBriefing::class)->execute($mission, $actor);
     expect(fn () => app(AcknowledgeMissionBriefing::class)->execute($mission, $briefing, $actor))->toThrow(ValidationException::class);
@@ -132,7 +146,7 @@ it('rejects acknowledgement of hard blockers and records blocked release attempt
 
 it('invalidates previous briefings when mission geometry or a source changes', function () {
     aimSync([aimRecord()]);
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $mission = aimMission();
     $old = app(GenerateMissionBriefing::class)->execute($mission, $actor);
     $original = $old->items()->first()->snapshot;
@@ -147,7 +161,7 @@ it('invalidates previous briefings when mission geometry or a source changes', f
 
 it('blocks default release when the official source has never been configured', function () {
     $mission = aimMission();
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $summary = app(MissionComplianceSummary::class)->execute($mission);
     expect($summary['aeronautical_information']['freshness'])->toBe('unavailable');
     expect(fn () => app(ReleaseMission::class)->execute($mission, $actor))->toThrow(ValidationException::class);
@@ -156,7 +170,7 @@ it('blocks default release when the official source has never been configured', 
 
 it('returns identical web and API briefing state through the shared query', function () {
     aimSync([aimRecord()]);
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     $mission = aimMission();
     $briefing = app(GenerateMissionBriefing::class)->execute($mission, $actor);
     $expected = app(MissionBriefing::class)->execute($mission, $actor);
@@ -164,7 +178,8 @@ it('returns identical web and API briefing state through the shared query', func
     $sharedQuery->shouldReceive('execute')->twice()->passthru();
     $this->app->instance(MissionBriefing::class, $sharedQuery);
     Sanctum::actingAs($actor);
-    $this->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertJsonPath('data.compliance', $expected['compliance'])->assertJsonPath('data.briefing.id', $briefing->id)->assertJsonPath('meta.contract_version', 'v1.0');
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertJsonPath('data.compliance', $expected['compliance'])->assertJsonPath('data.briefing.id', $briefing->id)->assertJsonPath('meta.contract_version', 'v1.0');
     $this->actingAs($actor)->get("/missions/{$mission->id}/briefing")->assertInertia(fn ($page) => $page->component('aeronautical-information/briefing')->where('compliance', $expected['compliance']));
 });
 
@@ -173,18 +188,22 @@ it('authenticates and authorizes register detail generation and acknowledgement 
     $this->getJson('/api/v1/aeronautical-information')->assertUnauthorized();
     Sanctum::actingAs(User::factory()->create());
     $this->getJson('/api/v1/aeronautical-information')->assertForbidden();
-    $this->getJson("/api/v1/missions/{$mission->id}/briefing")->assertForbidden();
+    $this->getJson("/api/v1/missions/{$mission->id}/briefing")->assertStatus(409);
     $this->postJson("/api/v1/missions/{$mission->id}/briefing")->assertForbidden();
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimPlatformAdmin();
     Sanctum::actingAs($actor);
     aimSync([aimRecord()]);
     $this->getJson('/api/v1/aeronautical-information?type=NOTAM')->assertOk()->assertJsonPath('data.items.total', 1);
     $item = AeronauticalInformationItem::first();
     $this->getJson("/api/v1/aeronautical-information/{$item->id}")->assertOk()->assertJsonPath('data.item.source_identifier', 'TEST-A0001/26');
-    $response = $this->postJson("/api/v1/missions/{$mission->id}/briefing")->assertCreated();
+    $response = $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing")->assertCreated();
     $id = $response->json('data.briefing.id');
-    $this->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => false])->assertUnprocessable();
-    $this->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertOk()->assertJsonPath('data.compliance.acknowledged', true);
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => false])->assertUnprocessable();
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertOk()->assertJsonPath('data.compliance.acknowledged', true);
     $other = aimMission();
-    $this->postJson("/api/v1/missions/{$other->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertNotFound();
+    $this->withHeader('X-YAW-Operator', (string) $other->uas_operator_id)
+        ->postJson("/api/v1/missions/{$other->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertNotFound();
 });

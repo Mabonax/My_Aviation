@@ -22,13 +22,17 @@ class MissionPolicy
 
     public function create(User $user): bool
     {
-        return $this->operatorContext->hasGlobalOperatorAccess($user) || $user->activeOperatorMemberships()->exists();
+        return $this->operatorContext->hasGlobalOperatorAccess($user)
+            || $user->activeOperatorMemberships()
+                ->whereIn('membership_role', \App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership::managerRoles())
+                ->exists();
     }
 
     public function update(User $user, UasMission $mission): bool
     {
         return $mission->uas_operator_id !== null
-            && $this->operatorContext->canManageOperator($user, $mission->uas_operator_id)
+            && ($this->operatorContext->hasGlobalOperatorAccess($user)
+                || $this->operatorContext->canManageOperator($user, $mission->uas_operator_id))
             && ! in_array($mission->lifecycle_state->value, ['closed', 'cancelled'], true);
     }
 

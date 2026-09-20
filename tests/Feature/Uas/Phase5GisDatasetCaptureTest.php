@@ -6,11 +6,30 @@ use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission;
 use App\Domains\Uas\Geography\Domain\Models\UasGisSpatialLayer;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function gisDatasetUser(array $permissions = ['gis.view', 'gis.create', 'gis.update']): User
+function gisDatasetOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'gisDataset Operator (Pty) Ltd',
+        'trading_name' => 'gisDataset Operator',
+        'status' => 'active',
+        'accountable_manager' => 'GIS Accountable Manager',
+        'responsible_person_flight_operations' => 'GIS Flight Ops',
+        'responsible_person_aircraft' => 'GIS Aircraft Lead',
+        'regulatory_source' => 'TR-010 GIS tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'GIS tenant isolation verification',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function gisDatasetUser(array $permissions = ['gis.view', 'gis.create', 'gis.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -22,10 +41,21 @@ function gisDatasetUser(array $permissions = ['gis.view', 'gis.create', 'gis.upd
 
     $role->users()->attach($user);
 
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
+
     return $user;
 }
 
-function gisDatasetProjectMission(User $user): UasGisProjectMission
+function gisDatasetProjectMission(User $user, UasOperator $operator): UasGisProjectMission
 {
     $project = UasGisProject::query()->create([
         'project_code' => 'GIS-DATA-001',
@@ -42,6 +72,7 @@ function gisDatasetProjectMission(User $user): UasGisProjectMission
     ]);
 
     $mission = UasMission::query()->create([
+        'uas_operator_id' => $operator->id,
         'mission_number' => 'MIS-DATA-001',
         'purpose' => 'Wetland imagery capture',
         'location' => 'Wetland reserve',
@@ -104,16 +135,18 @@ function gisDatasetPayload(array $overrides = []): array
 it('requires GIS update permission to capture datasets', function () {
     $this->withoutVite();
 
-    $viewer = gisDatasetUser(['gis.view']);
-    $projectMission = gisDatasetProjectMission($viewer);
+    $operator = gisDatasetOperator();
+    $viewer = gisDatasetUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    $projectMission = gisDatasetProjectMission($viewer, $operator);
 
     $this->actingAs($viewer)->get("/gis-project-missions/{$projectMission->id}/datasets/create")->assertForbidden();
     $this->actingAs($viewer)->post("/gis-project-missions/{$projectMission->id}/datasets", gisDatasetPayload())->assertForbidden();
 });
 
 it('captures a geospatial dataset with spatial layers and FR-GIS-003 audit evidence', function () {
-    $user = gisDatasetUser();
-    $projectMission = gisDatasetProjectMission($user);
+    $operator = gisDatasetOperator();
+    $user = gisDatasetUser([], $operator);
+    $projectMission = gisDatasetProjectMission($user, $operator);
 
     $this->actingAs($user)
         ->post("/gis-project-missions/{$projectMission->id}/datasets", gisDatasetPayload())
@@ -136,8 +169,9 @@ it('captures a geospatial dataset with spatial layers and FR-GIS-003 audit evide
 });
 
 it('validates dataset provenance processing state and layer metadata', function () {
-    $user = gisDatasetUser();
-    $projectMission = gisDatasetProjectMission($user);
+    $operator = gisDatasetOperator();
+    $user = gisDatasetUser([], $operator);
+    $projectMission = gisDatasetProjectMission($user, $operator);
     UasGisDataset::query()->create([
         'uas_gis_project_mission_id' => $projectMission->id,
         ...gisDatasetPayload(['layers' => []]),
@@ -171,8 +205,9 @@ it('validates dataset provenance processing state and layer metadata', function 
 it('exposes dataset creation options and project dataset summaries through Inertia', function () {
     $this->withoutVite();
 
-    $user = gisDatasetUser();
-    $projectMission = gisDatasetProjectMission($user);
+    $operator = gisDatasetOperator();
+    $user = gisDatasetUser([], $operator);
+    $projectMission = gisDatasetProjectMission($user, $operator);
 
     $this->actingAs($user)
         ->get("/gis-project-missions/{$projectMission->id}/datasets/create")

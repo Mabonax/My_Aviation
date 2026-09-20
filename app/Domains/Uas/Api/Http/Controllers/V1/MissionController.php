@@ -53,8 +53,8 @@ class MissionController extends Controller
 
     private function authorizeInContext(Request $request, UasMission $mission, CurrentOperatorContext $context): void
     {
-        Gate::authorize('view', $mission);
         $operator = $context->requireFromRequest($request);
         abort_unless((int) $mission->uas_operator_id === (int) $operator->id, 404);
+        Gate::authorize('view', $mission);
     }
 }

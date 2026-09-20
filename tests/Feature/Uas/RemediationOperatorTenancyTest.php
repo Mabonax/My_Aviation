@@ -133,7 +133,7 @@ function tenancyMissionPayload(array $overrides = []): array
 }
 
 it('lets an administrator add a user to an operator with a validated membership role', function () {
-    $admin = tenancyUser(['operators.view', 'operators.update']);
+    $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator(['legal_entity' => 'Membership Operator']);
 
@@ -154,7 +154,7 @@ it('lets an administrator add a user to an operator with a validated membership 
 });
 
 it('prevents duplicate active memberships and rejects invalid roles', function () {
-    $admin = tenancyUser(['operators.view', 'operators.update']);
+    $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator();
 
@@ -180,7 +180,7 @@ it('prevents duplicate active memberships and rejects invalid roles', function (
 });
 
 it('removes normal operator access when a membership is suspended', function () {
-    $admin = tenancyUser(['operators.view', 'operators.update']);
+    $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator();
     $membership = UasOperatorMembership::query()->create([
@@ -270,7 +270,7 @@ it('keeps pilot self-service available after operator membership scoping', funct
 });
 
 it('records audit entries for membership lifecycle and operator assignments', function () {
-    $admin = tenancyUser(['operators.view', 'operators.update']);
+    $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator();
     $pilot = tenancyPilot();

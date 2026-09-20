@@ -22,8 +22,12 @@ class AssignMissionToGisProject
             $mission = UasMission::query()->findOrFail($data['uas_mission_id']);
             Gate::forUser($actor)->authorize('view', $mission);
 
+            if ($project->uas_operator_id && (int) $project->uas_operator_id !== (int) $mission->uas_operator_id) {
+                abort(403, 'A GIS project cannot be linked across operator tenants.');
+            }
+
             $projectOperatorIds = $project->projectMissions()->with('mission')->get()->pluck('mission.uas_operator_id')->filter()->unique();
-            if ($projectOperatorIds->isNotEmpty() && ! $projectOperatorIds->contains((int) $mission->uas_operator_id)) {
+            if (! $project->uas_operator_id && $projectOperatorIds->isNotEmpty() && ! $projectOperatorIds->contains((int) $mission->uas_operator_id)) {
                 abort(403, 'A GIS project cannot be linked across operator tenants.');
             }
 

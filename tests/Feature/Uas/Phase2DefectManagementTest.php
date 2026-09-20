@@ -10,11 +10,32 @@ use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Missions\Domain\Services\MissionReleaseGate;
 use App\Domains\Uas\Pilots\Domain\Models\PilotCertificate;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function defectUser(array $permissions = ['missions.view', 'missions.create', 'missions.update']): User
+function defectOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Defect Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'DEF-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Defect Accountable Manager',
+        'responsible_person_flight_operations' => 'Defect Flight Operations',
+        'responsible_person_aircraft' => 'Defect Aircraft Lead',
+        'safety_manager' => 'Defect Safety Manager',
+        'security_coordinator' => 'Defect Security Coordinator',
+        'regulatory_source' => 'YAW Phase 2 defect tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Defect test operator scope.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function defectUser(array $permissions = ['missions.view', 'missions.create', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -26,12 +47,23 @@ function defectUser(array $permissions = ['missions.view', 'missions.create', 'm
 
     $role->users()->attach($user);
 
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
+
     return $user;
 }
 
-function defectAircraft(array $overrides = []): UasAircraft
+function defectAircraft(array $overrides = [], ?UasOperator $operator = null): UasAircraft
 {
-    return UasAircraft::query()->create([
+    $aircraft = UasAircraft::query()->create([
         'registration' => 'ZU-DEF-'.str()->upper(str()->random(4)),
         'manufacturer' => 'VMT',
         'model' => 'Surveyor Two',
@@ -40,6 +72,15 @@ function defectAircraft(array $overrides = []): UasAircraft
         'operational_status' => 'active_serviceable',
         ...$overrides,
     ]);
+
+    if ($operator) {
+        $operator->aircraft()->attach($aircraft->id, [
+            'assignment_role' => 'operated_aircraft',
+            'status' => 'active',
+        ]);
+    }
+
+    return $aircraft;
 }
 
 function defectPilot(): UasPilot
@@ -73,7 +114,7 @@ function defectPilot(): UasPilot
     return $pilot;
 }
 
-function defectMission(UasAircraft $aircraft, array $overrides = []): UasMission
+function defectMission(UasAircraft $aircraft, array $overrides = [], ?UasOperator $operator = null): UasMission
 {
     $pilot = defectPilot();
 
@@ -99,6 +140,7 @@ function defectMission(UasAircraft $aircraft, array $overrides = []): UasMission
         'client_project' => 'Phase 2 verification',
         'location' => 'Defect test range',
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => $aircraft->id,
         'uas_pilot_id' => $pilot->id,
         'planned_start_at' => now()->addHour(),
@@ -141,9 +183,10 @@ function defectPayload(array $overrides = []): array
 it('requires mission permissions for defect routes', function () {
     $this->withoutVite();
 
-    $aircraft = defectAircraft();
-    $mission = defectMission($aircraft);
-    $viewer = defectUser(['missions.view']);
+    $operator = defectOperator();
+    $aircraft = defectAircraft([], $operator);
+    $mission = defectMission($aircraft, [], $operator);
+    $viewer = defectUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get('/defects')->assertOk();
     $this->actingAs($viewer)->get('/defects/create')->assertForbidden();
@@ -153,9 +196,10 @@ it('requires mission permissions for defect routes', function () {
 });
 
 it('reports a mission-linked grounding defect, audits it and blocks aircraft serviceability', function () {
-    $user = defectUser();
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF1']);
-    $mission = defectMission($aircraft);
+    $operator = defectOperator();
+    $user = defectUser([], $operator);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF1'], $operator);
+    $mission = defectMission($aircraft, [], $operator);
 
     $this->actingAs($user)
         ->post("/missions/{$mission->id}/defects", defectPayload())
@@ -187,8 +231,9 @@ it('reports a mission-linked grounding defect, audits it and blocks aircraft ser
 });
 
 it('reports top-level inspection defects and applies flight restricted serviceability impact', function () {
-    $user = defectUser();
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF2']);
+    $operator = defectOperator();
+    $user = defectUser([], $operator);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF2'], $operator);
 
     $this->actingAs($user)
         ->post('/defects', defectPayload([
@@ -207,7 +252,8 @@ it('reports top-level inspection defects and applies flight restricted serviceab
 });
 
 it('validates documented defect source and severity values', function () {
-    $user = defectUser();
+    $operator = defectOperator();
+    $user = defectUser([], $operator);
     $aircraft = defectAircraft();
 
     $this->actingAs($user)
@@ -223,9 +269,10 @@ it('validates documented defect source and severity values', function () {
 it('exposes defect reports through Inertia and mission defect summaries', function () {
     $this->withoutVite();
 
-    $user = defectUser();
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF5']);
-    $mission = defectMission($aircraft);
+    $operator = defectOperator();
+    $user = defectUser([], $operator);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF5'], $operator);
+    $mission = defectMission($aircraft, [], $operator);
 
     $this->actingAs($user)
         ->get('/defects/create')

@@ -15,8 +15,7 @@ function tr004Operator(string $name): UasOperator
     return UasOperator::query()->create([
         'legal_entity' => $name,
         'trading_name' => $name,
-        'operator_code' => strtoupper(substr(md5($name), 0, 8)),
-        'status' => 'active',
+        'status'=>'active','accountable_manager'=>'Test Manager','responsible_person_flight_operations'=>'Test Flight Ops','responsible_person_aircraft'=>'Test Aircraft','regulatory_source'=>'Tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant verification','responsible_role'=>'Accountable Manager',
     ]);
 }
 
@@ -43,8 +42,7 @@ it('denies cross tenant aircraft and mission policy access', function () {
         'uas_operator_id' => $bravo->id,
         'purpose' => 'Isolation verification',
         'location' => 'Test',
-        'lifecycle_state' => MissionLifecycleState::Draft,
-        'created_by' => $user->id,
+        'lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by' => $user->id,
         'updated_by' => $user->id,
     ]);
 
@@ -79,15 +77,18 @@ it('blocks linking one GIS project across operator tenants', function () {
         'area_name' => 'Test',
         'lifecycle_state' => 'planning',
         'responsible_role' => 'operations_manager',
+        'source_reference' => 'TR-004',
+        'source_version' => 'v1',
+        'evidence_required' => 'mission_evidence',
         'created_by' => $user->id,
         'updated_by' => $user->id,
     ]);
-    $missionA = UasMission::query()->create(['mission_number'=>'GIS-A','uas_operator_id'=>$alpha->id,'purpose'=>'A','location'=>'A','lifecycle_state'=>MissionLifecycleState::Draft,'created_by'=>$user->id,'updated_by'=>$user->id]);
-    $missionB = UasMission::query()->create(['mission_number'=>'GIS-B','uas_operator_id'=>$bravo->id,'purpose'=>'B','location'=>'B','lifecycle_state'=>MissionLifecycleState::Draft,'created_by'=>$user->id,'updated_by'=>$user->id]);
+    $missionA = UasMission::query()->create(['mission_number'=>'GIS-A','uas_operator_id'=>$alpha->id,'purpose'=>'A','location'=>'A','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$user->id,'updated_by'=>$user->id]);
+        $missionB = UasMission::query()->create(['mission_number'=>'GIS-B','uas_operator_id'=>$bravo->id,'purpose'=>'B','location'=>'B','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$user->id,'updated_by'=>$user->id]);
 
-    app(AssignMissionToGisProject::class)->execute($project, [
-        'uas_mission_id'=>$missionA->id,'mapping_objective'=>'A','capture_plan'=>'A','expected_outputs'=>[],'field_verification_required'=>false,
-    ], $user);
+    \App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission::query()->create([
+        'uas_gis_project_id'=>$project->id,'uas_mission_id'=>$missionA->id,'mapping_objective'=>'A','capture_plan'=>'A','expected_outputs'=>[],'field_verification_required'=>false,'status'=>'planned','assigned_by'=>$user->id,
+    ]);
 
     expect(fn () => app(AssignMissionToGisProject::class)->execute($project, [
         'uas_mission_id'=>$missionB->id,'mapping_objective'=>'B','capture_plan'=>'B','expected_outputs'=>[],'field_verification_required'=>false,

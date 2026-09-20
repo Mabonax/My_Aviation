@@ -420,7 +420,8 @@ it('instantiates batteries components and maintenance baseline from catalogue pa
 
     Sanctum::actingAs($admin);
 
-    $this->getJson("/api/v1/aircraft/{$aircraft->id}")
+    $this->withHeader('X-YAW-Operator', (string) $operator->id)
+        ->getJson("/api/v1/aircraft/{$aircraft->id}")
         ->assertOk()
         ->assertJsonPath('data.aircraft.package_instantiation.state', 'instantiated')
         ->assertJsonPath('data.aircraft.package_instantiation.battery_count', 2)

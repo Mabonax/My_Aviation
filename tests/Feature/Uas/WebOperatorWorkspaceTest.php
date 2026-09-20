@@ -1,7 +1,7 @@
 <?php
 use App\Domains\Uas\Operators\Domain\Models\{UasOperator,UasOperatorMembership};
 use App\Models\User;
-function tr007Op(string $name):UasOperator{return UasOperator::query()->create(['legal_entity'=>$name,'trading_name'=>$name,'operator_code'=>strtoupper(substr(md5($name),0,8)),'status'=>'active']);}
+function tr007Op(string $name):UasOperator{return UasOperator::query()->create(['legal_entity'=>$name,'trading_name'=>$name,'status'=>'active','accountable_manager'=>'Test Manager','responsible_person_flight_operations'=>'Test Flight Ops','responsible_person_aircraft'=>'Test Aircraft','regulatory_source'=>'TR-007','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Web workspace verification','responsible_role'=>'Accountable Manager']);}
 it('allows a member to select an accessible web operator workspace',function(){
  $u=User::factory()->create();$a=tr007Op('TR007 Alpha');$b=tr007Op('TR007 Bravo');
  foreach([$a,$b] as $op) UasOperatorMembership::query()->create(['uas_operator_id'=>$op->id,'user_id'=>$u->id,'membership_role'=>'remote_pilot','status'=>'active','source'=>'admin']);

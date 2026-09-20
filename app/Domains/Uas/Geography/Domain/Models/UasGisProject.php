@@ -2,6 +2,7 @@
 
 namespace App\Domains\Uas\Geography\Domain\Models;
 
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class UasGisProject extends Model
 {
     protected $fillable = [
+        'uas_operator_id',
         'project_code',
         'name',
         'project_type',
@@ -36,6 +38,11 @@ class UasGisProject extends Model
             'centroid_longitude' => 'decimal:7',
             'area_boundary' => 'array',
         ];
+    }
+
+    public function operator(): BelongsTo
+    {
+        return $this->belongsTo(UasOperator::class, 'uas_operator_id');
     }
 
     public function creator(): BelongsTo

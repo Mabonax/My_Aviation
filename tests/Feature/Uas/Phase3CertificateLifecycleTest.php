@@ -4,11 +4,12 @@ use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Operators\Application\Queries\OperatorCertificateCaseReport;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperatorCertificateCase;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function certificateUser(array $permissions = ['operators.view', 'operators.update']): User
+function certificateUser(array $permissions = ['operators.view', 'operators.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_ADMINISTRATOR): User
 {
     $user = User::factory()->create();
 
@@ -19,6 +20,17 @@ function certificateUser(array $permissions = ['operators.view', 'operators.upda
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -101,7 +113,7 @@ it('requires operator update permission for certificate lifecycle case routes', 
 
     $operator = certificateOperator();
     $case = storedCertificateCase($operator);
-    $viewer = certificateUser(['operators.view']);
+    $viewer = certificateUser(['operators.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/operators/{$operator->id}/certificate-cases/create")->assertForbidden();
     $this->actingAs($viewer)->post("/operators/{$operator->id}/certificate-cases", certificatePayload())->assertForbidden();
@@ -111,8 +123,8 @@ it('requires operator update permission for certificate lifecycle case routes', 
 });
 
 it('creates a renewal case with derived submission status and audit evidence', function () {
-    $user = certificateUser();
     $operator = certificateOperator();
+    $user = certificateUser([], $operator);
 
     $this->actingAs($user)
         ->post("/operators/{$operator->id}/certificate-cases", certificatePayload())
@@ -136,8 +148,8 @@ it('creates a renewal case with derived submission status and audit evidence', f
 });
 
 it('updates lifecycle cases and recalculates submission status', function () {
-    $user = certificateUser();
     $operator = certificateOperator();
+    $user = certificateUser([], $operator);
     $case = storedCertificateCase($operator);
 
     $this->actingAs($user)
@@ -164,8 +176,8 @@ it('updates lifecycle cases and recalculates submission status', function () {
 });
 
 it('validates certificate case type status and list payloads', function () {
-    $user = certificateUser();
     $operator = certificateOperator();
+    $user = certificateUser([], $operator);
 
     $this->actingAs($user)
         ->post("/operators/{$operator->id}/certificate-cases", certificatePayload([
@@ -179,8 +191,8 @@ it('validates certificate case type status and list payloads', function () {
 it('exposes certificate case pages and operator case report through Inertia', function () {
     $this->withoutVite();
 
-    $user = certificateUser();
     $operator = certificateOperator(['legal_entity' => 'Visible Certificate Operator']);
+    $user = certificateUser([], $operator);
     $case = storedCertificateCase($operator, ['case_number' => 'OPS-REN-VISIBLE']);
 
     $this->actingAs($user)

@@ -21,7 +21,7 @@ class GisProjectMissionController extends Controller
 
         return Inertia::render('geography/projects/missions/create', [
             'project' => GisProjectPresenter::summary($gisProject),
-            'options' => $options->execute(),
+            'options' => $options->execute($gisProject->uas_operator_id),
         ]);
     }
 

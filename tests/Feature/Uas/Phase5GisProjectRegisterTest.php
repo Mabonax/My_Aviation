@@ -3,11 +3,30 @@
 use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
 use App\Domains\Uas\Geography\Domain\Services\GisProjectLifecycle;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function gisProjectUser(array $permissions = ['gis.view', 'gis.create', 'gis.update']): User
+function gisProjectOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'gisProject Operator (Pty) Ltd',
+        'trading_name' => 'gisProject Operator',
+        'status' => 'active',
+        'accountable_manager' => 'GIS Accountable Manager',
+        'responsible_person_flight_operations' => 'GIS Flight Ops',
+        'responsible_person_aircraft' => 'GIS Aircraft Lead',
+        'regulatory_source' => 'TR-010 GIS tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'GIS tenant isolation verification',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function gisProjectUser(array $permissions = ['gis.view', 'gis.create', 'gis.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -18,6 +37,17 @@ function gisProjectUser(array $permissions = ['gis.view', 'gis.create', 'gis.upd
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -50,8 +80,10 @@ function gisProjectPayload(array $overrides = []): array
 it('requires gis permissions for project routes', function () {
     $this->withoutVite();
 
-    $viewer = gisProjectUser(['gis.view']);
+    $operator = gisProjectOperator();
+    $viewer = gisProjectUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $viewer->id,
         'updated_by' => $viewer->id,
@@ -66,7 +98,8 @@ it('requires gis permissions for project routes', function () {
 });
 
 it('creates a GIS project spine with source and audit evidence', function () {
-    $user = gisProjectUser();
+    $operator = gisProjectOperator();
+    $user = gisProjectUser([], $operator);
 
     $response = $this->actingAs($user)->post('/gis-projects', gisProjectPayload());
 
@@ -99,8 +132,10 @@ it('enforces documented GIS project lifecycle order', function () {
 });
 
 it('transitions GIS project workflow state with audit evidence', function () {
-    $user = gisProjectUser();
+    $operator = gisProjectOperator();
+    $user = gisProjectUser([], $operator);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,
@@ -122,8 +157,10 @@ it('transitions GIS project workflow state with audit evidence', function () {
 });
 
 it('validates project identity type source evidence and coordinates', function () {
-    $user = gisProjectUser();
+    $operator = gisProjectOperator();
+    $user = gisProjectUser([], $operator);
     UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,
@@ -147,8 +184,10 @@ it('validates project identity type source evidence and coordinates', function (
 it('exposes GIS project register pages through Inertia', function () {
     $this->withoutVite();
 
-    $user = gisProjectUser();
+    $operator = gisProjectOperator();
+    $user = gisProjectUser([], $operator);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,

@@ -15,8 +15,9 @@ class MissionOptions
 
     public function execute(?User $user = null): array
     {
-        $operatorIds = $user ? app(CurrentOperatorContext::class)->accessibleOperatorIds($user) : [];
-        $global = $user === null || $user->hasUasPermission('missions.view');
+        $operatorContext = app(CurrentOperatorContext::class);
+        $operatorIds = $user ? $operatorContext->accessibleOperatorIds($user) : [];
+        $global = $user === null || ($user !== null && $operatorContext->hasGlobalOperatorAccess($user));
 
         return [
             'operators' => UasOperator::query()

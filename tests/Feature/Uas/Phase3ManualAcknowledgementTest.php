@@ -5,11 +5,12 @@ use App\Domains\Uas\Operators\Application\Queries\ManualRevisionDistributionRepo
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualDistribution;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualRevision;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function acknowledgementManager(array $permissions = ['operators.view', 'operators.update']): User
+function acknowledgementManager(array $permissions = ['operators.view', 'operators.update'], ?UasOperator $operator = null): User
 {
     $user = User::factory()->create();
 
@@ -20,6 +21,17 @@ function acknowledgementManager(array $permissions = ['operators.view', 'operato
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => UasOperatorMembership::ROLE_ADMINISTRATOR,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -165,8 +177,8 @@ it('requires explicit receipt and readership confirmation before acknowledgement
 it('allows operator managers to record acknowledgements and exposes acknowledgement summary in the revision report', function () {
     $this->withoutVite();
 
-    $manager = acknowledgementManager();
     $operator = acknowledgementOperator(['legal_entity' => 'Visible Acknowledgement Operator']);
+    $manager = acknowledgementManager([], $operator);
     $revision = acknowledgementRevision($operator, ['revision_code' => 'OM-REV-VISIBLE-ACK']);
     $distribution = acknowledgementDistribution($revision, ['recipient_name' => 'Visible Recipient']);
 

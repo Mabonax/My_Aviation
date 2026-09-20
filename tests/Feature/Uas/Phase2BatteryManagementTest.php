@@ -6,11 +6,13 @@ use App\Domains\Uas\Batteries\Application\Queries\MissionBatteryReport;
 use App\Domains\Uas\Batteries\Domain\Models\UasBattery;
 use App\Domains\Uas\Batteries\Domain\Models\UasMissionBatteryUsage;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function batteryUser(array $permissions = ['missions.view', 'missions.create', 'missions.update']): User
+function batteryUser(array $permissions = ['missions.view', 'missions.create', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -22,7 +24,35 @@ function batteryUser(array $permissions = ['missions.view', 'missions.create', '
 
     $role->users()->attach($user);
 
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
+
     return $user;
+}
+
+function batteryOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Battery Operator '.str()->upper(str()->random(5)),
+        'trading_name' => 'Battery Operator',
+        'status' => 'active',
+        'accountable_manager' => 'Battery Accountable Manager',
+        'responsible_person_flight_operations' => 'Battery Flight Operations',
+        'responsible_person_aircraft' => 'Battery Aircraft Lead',
+        'regulatory_source' => 'FR-BAT-001 tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Battery management tenant verification.',
+        'responsible_role' => 'Operations Manager',
+    ]);
 }
 
 function batteryAircraft(array $overrides = []): UasAircraft
@@ -38,9 +68,10 @@ function batteryAircraft(array $overrides = []): UasAircraft
     ]);
 }
 
-function batteryMission(array $overrides = []): UasMission
+function batteryMission(?UasOperator $operator = null, array $overrides = []): UasMission
 {
     return UasMission::query()->create([
+        'uas_operator_id' => $operator?->id,
         'mission_number' => 'MIS-BAT-'.str()->upper(str()->random(5)),
         'purpose' => 'Battery management proof',
         'client_project' => 'Phase 2 verification',
@@ -106,8 +137,9 @@ function storedBattery(array $overrides = []): UasBattery
 it('requires the relevant mission permissions for battery inventory and usage routes', function () {
     $this->withoutVite();
 
-    $mission = batteryMission();
-    $viewer = batteryUser(['missions.view']);
+    $operator = batteryOperator();
+    $mission = batteryMission($operator);
+    $viewer = batteryUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get('/batteries')->assertOk();
     $this->actingAs($viewer)->get('/batteries/create')->assertForbidden();
@@ -117,7 +149,8 @@ it('requires the relevant mission permissions for battery inventory and usage ro
 });
 
 it('creates battery inventory records with derived health and audit evidence for FR-BAT-001', function () {
-    $user = batteryUser();
+    $operator = batteryOperator();
+    $user = batteryUser([], $operator);
     $aircraft = batteryAircraft(['registration' => 'ZU-BAT1']);
 
     $this->actingAs($user)
@@ -149,9 +182,10 @@ it('creates battery inventory records with derived health and audit evidence for
 it('records mission battery usage, increments cycles and exposes mission battery summaries', function () {
     $this->withoutVite();
 
-    $user = batteryUser();
+    $operator = batteryOperator();
+    $user = batteryUser([], $operator);
     $aircraft = batteryAircraft(['registration' => 'ZU-BAT2']);
-    $mission = batteryMission(['uas_aircraft_id' => $aircraft->id]);
+    $mission = batteryMission($operator, ['uas_aircraft_id' => $aircraft->id]);
     $battery = storedBattery([
         'battery_uid' => 'BAT-002',
         'serial_number' => 'TB65-0002',
@@ -207,10 +241,11 @@ it('records mission battery usage, increments cycles and exposes mission battery
 });
 
 it('blocks mission usage when a battery is incompatible with the mission aircraft', function () {
-    $user = batteryUser();
+    $operator = batteryOperator();
+    $user = batteryUser([], $operator);
     $missionAircraft = batteryAircraft(['registration' => 'ZU-BAT3']);
     $otherAircraft = batteryAircraft(['registration' => 'ZU-BAT4']);
-    $mission = batteryMission(['uas_aircraft_id' => $missionAircraft->id]);
+    $mission = batteryMission($operator, ['uas_aircraft_id' => $missionAircraft->id]);
     $battery = storedBattery(['compatible_uas_aircraft_id' => $otherAircraft->id]);
 
     $this->actingAs($user)
@@ -226,9 +261,10 @@ it('blocks mission usage when a battery is incompatible with the mission aircraf
 it('exposes battery inventory and mission battery capture pages through Inertia', function () {
     $this->withoutVite();
 
-    $user = batteryUser();
+    $operator = batteryOperator();
+    $user = batteryUser([], $operator);
     $aircraft = batteryAircraft(['registration' => 'ZU-BAT5']);
-    $mission = batteryMission(['uas_aircraft_id' => $aircraft->id]);
+    $mission = batteryMission($operator, ['uas_aircraft_id' => $aircraft->id]);
     storedBattery([
         'battery_uid' => 'BAT-005',
         'serial_number' => 'TB65-0005',

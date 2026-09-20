@@ -13,6 +13,7 @@ use App\Domains\Uas\AeronauticalInformation\Domain\Models\ProviderSync;
 use App\Domains\Uas\Missions\Application\Actions\ReleaseMission;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
+use App\Domains\Uas\Access\Domain\Models\UasRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,6 +34,19 @@ class FailedAimContractProvider extends OperationalAeronauticalTestProvider
     {
         throw new RuntimeException('https://user:credential-secret@example.test/feed?token=credential-secret');
     }
+}
+
+function aimSafetyPlatformAdmin(): User
+{
+    $user = User::factory()->create();
+    $role = UasRole::query()->create([
+        'name' => 'platform_super_admin_'.str()->random(8),
+        'label' => 'Platform Super Admin',
+        'permissions' => ['platform.super_admin'],
+    ]);
+    $role->users()->attach($user);
+
+    return $user;
 }
 
 it('requires each approval evidence reference even with both flags enabled', function (string $requirement) {
@@ -73,7 +87,11 @@ it('sanitizes provider failure at the action API and audit boundaries', function
     $mission = aimMission();
     $health = collect(app(ProviderHealth::class)->execute($mission))->firstWhere('provider', 'operational_test');
     expect($health['health_status'])->toBe('sync_failed')->and($health['usable_for_release'])->toBeFalse();
-    $this->actingAs(User::factory()->create(['role' => 'super_admin']))->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertDontSee('credential-secret');
+    $this->actingAs(aimSafetyPlatformAdmin())
+        ->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->getJson("/api/v1/missions/{$mission->id}/briefing")
+        ->assertOk()
+        ->assertDontSee('credential-secret');
     expect(UasAuditEntry::all()->toJson())->not->toContain('credential-secret');
     expect(ProviderSync::latest('id')->first()->error)->not->toContain('credential-secret');
 });
@@ -107,7 +125,7 @@ it('rejects a lower numeric revision even when its issue timestamp is unchanged'
 });
 
 it('blocks release for missing stale failed partial and revoked sources', function (string $scenario) {
-    $actor = User::factory()->create(['role' => 'super_admin']);
+    $actor = aimSafetyPlatformAdmin();
     $mission = aimMission();
     if ($scenario !== 'unconfigured') {
         aimSync();

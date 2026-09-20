@@ -5,10 +5,31 @@ use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Domains\Uas\Tracks\Application\Queries\MissionTrackReport;
 use App\Domains\Uas\Tracks\Domain\Models\UasFlightTrack;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function trackMission(array $overrides = []): UasMission
+function trackOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'track Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'TRA-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Accountable Manager',
+        'responsible_person_flight_operations' => 'Flight Operations',
+        'responsible_person_aircraft' => 'Aircraft Lead',
+        'safety_manager' => 'Safety Manager',
+        'security_coordinator' => 'Security Coordinator',
+        'regulatory_source' => 'YAW TR-010 track tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Phase 2 tenant-aware test fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function trackMission(array $overrides = [], ?UasOperator $operator = null): UasMission
 {
     return UasMission::query()->create([
         'mission_number' => 'MIS-TRK-001',
@@ -16,6 +37,7 @@ function trackMission(array $overrides = []): UasMission
         'client_project' => 'Phase 2 verification',
         'location' => 'Track test range',
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => null,
         'uas_pilot_id' => null,
         'planned_start_at' => now()->subHours(2),
@@ -41,7 +63,7 @@ function trackMission(array $overrides = []): UasMission
     ]);
 }
 
-function trackUser(array $permissions = ['missions.view', 'missions.update']): User
+function trackUser(array $permissions = ['missions.view', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -52,6 +74,17 @@ function trackUser(array $permissions = ['missions.view', 'missions.update']): U
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -77,16 +110,18 @@ function trackPayload(array $overrides = []): array
 it('requires mission update permission for flight track routes', function () {
     $this->withoutVite();
 
-    $mission = trackMission();
-    $viewer = trackUser(['missions.view']);
+    $operator = trackOperator();
+    $mission = trackMission([], $operator);
+    $viewer = trackUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/missions/{$mission->id}/tracks/create")->assertForbidden();
     $this->actingAs($viewer)->post("/missions/{$mission->id}/tracks", trackPayload())->assertForbidden();
 });
 
 it('records flight track telemetry summary and audit evidence for FR-TRK-001', function () {
-    $user = trackUser();
-    $mission = trackMission();
+    $operator = trackOperator();
+    $user = trackUser([], $operator);
+    $mission = trackMission([], $operator);
 
     $this->actingAs($user)
         ->post("/missions/{$mission->id}/tracks", trackPayload())
@@ -112,8 +147,9 @@ it('records flight track telemetry summary and audit evidence for FR-TRK-001', f
 });
 
 it('validates that a flight track has at least two bounded points', function () {
-    $user = trackUser();
-    $mission = trackMission();
+    $operator = trackOperator();
+    $user = trackUser([], $operator);
+    $mission = trackMission([], $operator);
 
     $this->actingAs($user)
         ->post("/missions/{$mission->id}/tracks", trackPayload([
@@ -125,8 +161,9 @@ it('validates that a flight track has at least two bounded points', function () 
 it('exposes track capture options and mission track summary on mission screens', function () {
     $this->withoutVite();
 
-    $user = trackUser();
-    $mission = trackMission();
+    $operator = trackOperator();
+    $user = trackUser([], $operator);
+    $mission = trackMission([], $operator);
 
     $this->actingAs($user)
         ->get("/missions/{$mission->id}/tracks/create")

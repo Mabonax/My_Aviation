@@ -17,12 +17,16 @@ final readonly class AuditEntryData
         public ?array $newValues,
         public ?string $ipAddress = null,
         public ?string $userAgent = null,
+        public ?int $operatorId = null,
+        public ?string $operatorContextSource = null,
     ) {}
 
     public function toAttributes(): array
     {
         return [
             'user_id' => $this->actor?->id,
+            'uas_operator_id' => $this->operatorId,
+            'operator_context_source' => $this->operatorContextSource,
             'action' => $this->action,
             'auditable_type' => $this->auditable::class,
             'auditable_id' => $this->auditable->getKey(),

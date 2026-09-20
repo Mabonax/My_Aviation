@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,6 +38,18 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $workspace = null;
+        if ($request->user()) {
+            $context = app(CurrentOperatorContext::class);
+            $active = $context->resolveFromRequest($request);
+            $operators = $context->scopeOperatorsFor($request->user())->orderBy('legal_entity')->get(['id','legal_entity','trading_name','operator_code']);
+            $workspace = [
+                'active_operator' => $active ? ['id'=>$active->id,'name'=>$active->trading_name ?: $active->legal_entity,'operator_code'=>$active->operator_code] : null,
+                'operators' => $operators->map(fn($operator)=>['id'=>$operator->id,'name'=>$operator->trading_name ?: $operator->legal_entity,'operator_code'=>$operator->operator_code])->values(),
+                'requires_selection' => $active === null && $operators->count() > 1,
+                'can_manage' => $active ? $context->canManageOperator($request->user(),$active) : false,
+            ];
+        }
 
         return array_merge(parent::share($request), [
             ...parent::share($request),
@@ -45,6 +58,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'operatorWorkspace' => $workspace,
         ]);
     }
 }

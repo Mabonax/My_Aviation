@@ -178,7 +178,8 @@ it('returns identical web and API briefing state through the shared query', func
     $sharedQuery->shouldReceive('execute')->twice()->passthru();
     $this->app->instance(MissionBriefing::class, $sharedQuery);
     Sanctum::actingAs($actor);
-    $this->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertJsonPath('data.compliance', $expected['compliance'])->assertJsonPath('data.briefing.id', $briefing->id)->assertJsonPath('meta.contract_version', 'v1.0');
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertJsonPath('data.compliance', $expected['compliance'])->assertJsonPath('data.briefing.id', $briefing->id)->assertJsonPath('meta.contract_version', 'v1.0');
     $this->actingAs($actor)->get("/missions/{$mission->id}/briefing")->assertInertia(fn ($page) => $page->component('aeronautical-information/briefing')->where('compliance', $expected['compliance']));
 });
 
@@ -195,10 +196,14 @@ it('authenticates and authorizes register detail generation and acknowledgement 
     $this->getJson('/api/v1/aeronautical-information?type=NOTAM')->assertOk()->assertJsonPath('data.items.total', 1);
     $item = AeronauticalInformationItem::first();
     $this->getJson("/api/v1/aeronautical-information/{$item->id}")->assertOk()->assertJsonPath('data.item.source_identifier', 'TEST-A0001/26');
-    $response = $this->postJson("/api/v1/missions/{$mission->id}/briefing")->assertCreated();
+    $response = $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing")->assertCreated();
     $id = $response->json('data.briefing.id');
-    $this->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => false])->assertUnprocessable();
-    $this->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertOk()->assertJsonPath('data.compliance.acknowledged', true);
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => false])->assertUnprocessable();
+    $this->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->postJson("/api/v1/missions/{$mission->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertOk()->assertJsonPath('data.compliance.acknowledged', true);
     $other = aimMission();
-    $this->postJson("/api/v1/missions/{$other->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertNotFound();
+    $this->withHeader('X-YAW-Operator', (string) $other->uas_operator_id)
+        ->postJson("/api/v1/missions/{$other->id}/briefing/{$id}/acknowledge", ['reviewed' => true])->assertNotFound();
 });

@@ -4,12 +4,13 @@ use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Operators\Application\Queries\ManualRevisionTrainingReport;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualRevision;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualTrainingRequirement;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function trainingTriggerUser(array $permissions = ['operators.view', 'operators.update']): User
+function trainingTriggerUser(array $permissions = ['operators.view', 'operators.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_ADMINISTRATOR): User
 {
     $user = User::factory()->create();
 
@@ -20,6 +21,17 @@ function trainingTriggerUser(array $permissions = ['operators.view', 'operators.
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -113,15 +125,15 @@ it('requires operator update permission for manual amendment training trigger ro
 
     $operator = trainingTriggerOperator();
     $revision = trainingTriggerRevision($operator);
-    $viewer = trainingTriggerUser(['operators.view']);
+    $viewer = trainingTriggerUser(['operators.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/operations-manual-revisions/{$revision->id}/training-requirements/create")->assertForbidden();
     $this->actingAs($viewer)->post("/operations-manual-revisions/{$revision->id}/training-requirements", trainingTriggerPayload())->assertForbidden();
 });
 
 it('creates mandatory training requirements from manual amendments with FR-OM-004 audit evidence', function () {
-    $user = trainingTriggerUser();
     $operator = trainingTriggerOperator();
+    $user = trainingTriggerUser([], $operator);
     $revision = trainingTriggerRevision($operator);
 
     $this->actingAs($user)
@@ -145,8 +157,8 @@ it('creates mandatory training requirements from manual amendments with FR-OM-00
 });
 
 it('validates training trigger type status roles and evidence values', function () {
-    $user = trainingTriggerUser();
     $operator = trainingTriggerOperator();
+    $user = trainingTriggerUser([], $operator);
     $revision = trainingTriggerRevision($operator);
 
     $this->actingAs($user)
@@ -163,8 +175,8 @@ it('validates training trigger type status roles and evidence values', function 
 it('exposes training trigger creation page and manual revision training report through Inertia', function () {
     $this->withoutVite();
 
-    $user = trainingTriggerUser();
     $operator = trainingTriggerOperator(['legal_entity' => 'Visible Training Operator']);
+    $user = trainingTriggerUser([], $operator);
     $revision = trainingTriggerRevision($operator, ['revision_code' => 'OM-REV-VISIBLE-TRN']);
     storedTrainingRequirement($revision);
 

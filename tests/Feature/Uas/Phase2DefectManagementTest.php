@@ -35,7 +35,7 @@ function defectOperator(): UasOperator
     ]);
 }
 
-function defectUser(array $permissions = ['missions.view', 'missions.create', 'missions.update'], ?UasOperator $operator = null): User
+function defectUser(array $permissions = ['missions.view', 'missions.create', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -51,7 +51,7 @@ function defectUser(array $permissions = ['missions.view', 'missions.create', 'm
         UasOperatorMembership::query()->create([
             'uas_operator_id' => $operator->id,
             'user_id' => $user->id,
-            'membership_role' => UasOperatorMembership::ROLE_OPERATIONS_MANAGER,
+            'membership_role' => $membershipRole,
             'status' => UasOperatorMembership::STATUS_ACTIVE,
             'source' => UasOperatorMembership::SOURCE_ADMIN,
             'activated_at' => now(),
@@ -140,6 +140,7 @@ function defectMission(UasAircraft $aircraft, array $overrides = [], ?UasOperato
         'client_project' => 'Phase 2 verification',
         'location' => 'Defect test range',
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => $aircraft->id,
         'uas_pilot_id' => $pilot->id,
         'planned_start_at' => now()->addHour(),
@@ -185,7 +186,7 @@ it('requires mission permissions for defect routes', function () {
     $operator = defectOperator();
     $aircraft = defectAircraft([], $operator);
     $mission = defectMission($aircraft, [], $operator);
-    $viewer = defectUser(['missions.view'], $operator);
+    $viewer = defectUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get('/defects')->assertOk();
     $this->actingAs($viewer)->get('/defects/create')->assertForbidden();

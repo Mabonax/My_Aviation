@@ -11,6 +11,7 @@ use App\Domains\Uas\AeronauticalInformation\Domain\Enums\DatasetMode;
 use App\Domains\Uas\AeronauticalInformation\Domain\Enums\SourceClassification;
 use App\Domains\Uas\AeronauticalInformation\Domain\Models\ProviderSync;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 
@@ -82,12 +83,27 @@ function aimRecord(array $overrides = []): array
 
 function aimMission(array $overrides = []): UasMission
 {
+    $operator = $overrides['operator'] ?? UasOperator::query()->create([
+        'legal_entity' => 'AIM Test Operator '.str()->upper(str()->random(5)),
+        'trading_name' => 'AIM Test Operator',
+        'status' => 'active',
+        'accountable_manager' => 'AIM Accountable Manager',
+        'responsible_person_flight_operations' => 'AIM Flight Operations',
+        'responsible_person_aircraft' => 'AIM Aircraft Lead',
+        'regulatory_source' => 'TEST ONLY FR-AIM',
+        'regulatory_source_version' => '1.0',
+        'regulatory_effective_date' => '2026-09-15',
+        'regulatory_applicability' => 'Aeronautical information test tenancy fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+
     return UasMission::query()->create(array_merge([
+        'uas_operator_id' => $operator->id,
         'mission_number' => 'AIM-'.str()->random(10), 'purpose' => 'Synthetic AIM tests', 'location' => 'Test range', 'operation_category' => 'inspection',
         'latitude' => -24, 'longitude' => 27, 'planned_start_at' => now()->addHour(), 'planned_end_at' => now()->addHours(2),
         'maximum_altitude_ft' => 400, 'aeronautical_context' => ['altitude_reference' => 'AGL'], 'lifecycle_state' => 'approved',
         'release_gate_state' => 'amber', 'operation_visibility' => 'vlos', 'day_night' => 'day',
         'regulatory_source' => 'TEST ONLY FR-AIM', 'regulatory_source_version' => '1.0', 'regulatory_effective_date' => '2026-09-15',
         'regulatory_applicability' => 'Automated test only', 'responsible_role' => 'Test operator',
-    ], $overrides));
+    ], \Illuminate\Support\Arr::except($overrides, ['operator'])));
 }

@@ -232,6 +232,22 @@ function missionComplianceMember(User $user, UasOperator $operator, string $role
     ]);
 }
 
+function missionComplianceAuthorizeUserForMission(User $user, UasMission $mission, string $role = 'operations_manager'): void
+{
+    $operator = $mission->operator;
+    if (! $operator) {
+        return;
+    }
+
+    missionComplianceMember($user, $operator, $role);
+
+    if ($mission->uas_aircraft_id) {
+        $operator->aircraft()->syncWithoutDetaching([
+            $mission->uas_aircraft_id => ['assignment_role' => 'operated_aircraft', 'status' => 'active'],
+        ]);
+    }
+}
+
 function missionComplianceRefreshStoredGate(UasMission $mission): void
 {
     $summary = app(MissionComplianceSummary::class)->execute($mission);
@@ -318,10 +334,13 @@ it('blocks release for incomplete checklist and missing mandatory approval evide
 it('allows green and amber mission release but rejects red release server side', function () {
     $user = missionComplianceUser(['missions.view', 'missions.update']);
     $greenMission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $greenMission);
     missionComplianceRecordChecklist($greenMission);
     $amberMission = missionComplianceMission(['risk_assessment' => null]);
+    missionComplianceAuthorizeUserForMission($user, $amberMission);
     missionComplianceRecordChecklist($amberMission);
     $redMission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $redMission);
     missionComplianceTemplate();
 
     $this->actingAs($user)->post(route('missions.release', $greenMission))->assertRedirect(route('missions.show', $greenMission));
@@ -336,6 +355,7 @@ it('allows green and amber mission release but rejects red release server side',
 it('records immutable release audit evidence with the compliance snapshot', function () {
     $user = missionComplianceUser(['missions.view', 'missions.update']);
     $mission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $mission);
     missionComplianceRecordChecklist($mission);
 
     $this->actingAs($user)->post(route('missions.release', $mission))->assertRedirect();
@@ -377,7 +397,7 @@ it('returns structured mission compliance through tenant-scoped API endpoints', 
         ->assertJsonPath('meta.contract_version', 'v1.0');
 
     $this->getJson("/api/v1/missions/{$missionB->id}/compliance")
-        ->assertForbidden()
+        ->assertNotFound()
         ->assertJsonPath('success', false);
 });
 
@@ -386,6 +406,7 @@ it('renders mission detail release readiness for authenticated users', function 
 
     $user = missionComplianceUser(['missions.view']);
     $mission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $mission, 'remote_pilot');
     missionComplianceRecordChecklist($mission);
 
     $this->actingAs($user)

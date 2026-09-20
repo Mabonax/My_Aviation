@@ -7,6 +7,8 @@ use App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Missions\Domain\Services\MissionReleaseGate;
 use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
+use App\Domains\Uas\Operators\Application\Services\PilotOperatorApproval;
+use Illuminate\Validation\ValidationException;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -24,11 +26,16 @@ class CreateMission
     public function __construct(
         private readonly MissionReleaseGate $releaseGate,
         private readonly RecordAuditEntry $recordAuditEntry,
+        private readonly PilotOperatorApproval $pilotApproval,
     ) {}
 
     public function execute(MissionData $data, User $actor, ?string $ipAddress = null, ?string $userAgent = null): UasMission
     {
         return DB::transaction(function () use ($data, $actor, $ipAddress, $userAgent): UasMission {
+            $attrs = $data->toModelAttributes();
+            if (! empty($attrs['uas_operator_id']) && ! empty($attrs['uas_pilot_id']) && ! $this->pilotApproval->isApproved((int) $attrs['uas_operator_id'], (int) $attrs['uas_pilot_id'])) {
+                throw ValidationException::withMessages(['uas_pilot_id' => 'The selected pilot is not currently approved to operate for this operator.']);
+            }
             $mission = UasMission::query()->create([
                 'mission_number' => $this->nextMissionNumber(),
                 ...$data->toModelAttributes(),

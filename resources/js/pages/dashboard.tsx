@@ -3,7 +3,7 @@ import { MetricCard } from '@/components/uas/metric-card';
 import { PageHeader } from '@/components/uas/page-header';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { AlertTriangle, ArrowRight, FileWarning, Plane, ShieldCheck, UserRound } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -22,6 +22,7 @@ interface DashboardSummary {
 }
 
 export default function Dashboard({ summary }: { summary: DashboardSummary }) {
+    const { operatorWorkspace } = usePage<{operatorWorkspace:{active_operator:{id:number;name:string;operator_code?:string|null}|null;requires_selection:boolean;can_manage:boolean}|null}>().props;
     const phaseItems = [
         { title: 'Pilot profiles', value: summary.pilots.toString(), status: 'Implemented', icon: UserRound },
         { title: 'Aircraft records', value: summary.aircraft.toString(), status: 'Implemented', icon: Plane },
@@ -33,6 +34,8 @@ export default function Dashboard({ summary }: { summary: DashboardSummary }) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
+                {operatorWorkspace?.requires_selection && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">Select an operator workspace from the sidebar before opening tenant operational records.</div>}
+                {operatorWorkspace?.active_operator && <div className="flex items-center justify-between rounded-xl border bg-card p-4"><div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active operator workspace</p><p className="font-semibold">{operatorWorkspace.active_operator.name}</p></div><span className="text-xs text-muted-foreground">{operatorWorkspace.active_operator.operator_code}</span></div>}
                 <PageHeader
                     title="Phase 1 compliance workspace"
                     description="Pilot and fleet master records for the first VMT UAS compliance release."

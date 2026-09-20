@@ -24,6 +24,7 @@ use App\Domains\Uas\Operators\Http\Controllers\OperatorCertificateCaseController
 use App\Domains\Uas\Operators\Http\Controllers\OperatorAssignmentController;
 use App\Domains\Uas\Operators\Http\Controllers\OperatorMembershipController;
 use App\Domains\Uas\Operators\Http\Controllers\OperatorProfileController;
+use App\Domains\Uas\Operators\Http\Controllers\OperatorWorkspaceController;
 use App\Domains\Uas\Operators\Http\Controllers\OperationsManualAcknowledgementController;
 use App\Domains\Uas\Operators\Http\Controllers\OperationsManualDistributionController;
 use App\Domains\Uas\Operators\Http\Controllers\OperationsManualRevisionController;
@@ -46,6 +47,9 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth'])->group(function () {
+    Route::post('operator-workspace', [OperatorWorkspaceController::class, 'select'])->name('operator-workspace.select');
+    Route::delete('operator-workspace', [OperatorWorkspaceController::class, 'clear'])->name('operator-workspace.clear');
+
     Route::get('aeronautical-information', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\AeronauticalInformationController::class, 'index'])->name('aeronautical-information.index');
     Route::post('aeronautical-information/import', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\AeronauticalInformationController::class, 'store'])->name('aeronautical-information.import');
     Route::get('aeronautical-information/{item}', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\AeronauticalInformationController::class, 'show'])->name('aeronautical-information.show');

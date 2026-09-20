@@ -6,6 +6,7 @@ import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { AlertTriangle, BatteryCharging, Bell, BookOpen, Building2, ClipboardCheck, ExternalLink, FileArchive, FileText, Folder, GraduationCap, LayoutGrid, Map, Network, Plane, ReceiptText, Scale, ShieldCheck, UserCircle, UserRound } from 'lucide-react';
 import AppLogo from './app-logo';
+import { OperatorWorkspaceSwitcher } from './operator-workspace-switcher';
 
 const mainNavItems: NavItem[] = [
     { title: 'Aeronautical Information', url: '/aeronautical-information', icon: Map },
@@ -133,6 +134,8 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>
+
+            <OperatorWorkspaceSwitcher />
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />

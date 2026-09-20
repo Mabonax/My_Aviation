@@ -14,6 +14,9 @@ class CurrentOperatorContext
     public function requestedOperatorId(\Illuminate\Http\Request $request): ?int
     {
         $value = $request->header(self::API_HEADER);
+        if (($value === null || $value === '') && $request->hasSession()) {
+            $value = $request->session()->get('yaw_operator_id');
+        }
 
         if ($value === null || $value === '') {
             return null;

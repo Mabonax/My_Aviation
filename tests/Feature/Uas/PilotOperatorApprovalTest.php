@@ -5,7 +5,7 @@ use App\Domains\Uas\Operators\Domain\Models\{UasOperator,UasOperatorMembership};
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
-function tr006Operator():UasOperator{return UasOperator::query()->create(['legal_entity'=>'TR006 Air','trading_name'=>'TR006','operator_code'=>'TR006','status'=>'active']);}
+function tr006Operator():UasOperator{return UasOperator::query()->create(['legal_entity'=>'TR006 Air','trading_name'=>'TR006','operator_code'=>'TR006','status'=>'active','accountable_manager'=>'TR006 Accountable Manager','responsible_person_flight_operations'=>'TR006 Flight Operations','responsible_person_aircraft'=>'TR006 Aircraft','safety_manager'=>'TR006 Safety Manager','security_coordinator'=>'TR006 Security Coordinator','regulatory_source'=>'YAW TR-006 verification','regulatory_source_version'=>'TR-006','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Pilot/operator approval verification.','responsible_role'=>'Accountable Manager']);}
 it('requires active membership before pilot operational approval',function(){
  $op=tr006Operator();$user=User::factory()->create();$actor=User::factory()->create();$pilot=UasPilot::query()->create(['user_id'=>$user->id,'first_name'=>'Test','last_name'=>'Pilot','status'=>'active']);
  expect(fn()=>app(ApprovePilotForOperator::class)->execute($op,$pilot,'remote_pilot',$actor))->toThrow(ValidationException::class);

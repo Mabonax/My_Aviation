@@ -3,10 +3,31 @@
 use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Geography\Domain\Services\MissionSpatialRuleEvaluator;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function spatialRuleMission(array $overrides = []): UasMission
+function spatialRuleOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Spatial Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'SPAT-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Accountable Manager',
+        'responsible_person_flight_operations' => 'Flight Operations',
+        'responsible_person_aircraft' => 'Aircraft Lead',
+        'safety_manager' => 'Safety Manager',
+        'security_coordinator' => 'Security Coordinator',
+        'regulatory_source' => 'YAW TR-010 spatial tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Phase 2 spatial tenant-aware fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function spatialRuleMission(array $overrides = [], ?UasOperator $operator = null): UasMission
 {
     return UasMission::query()->create([
         'mission_number' => 'MIS-SPATIAL-001',
@@ -26,6 +47,7 @@ function spatialRuleMission(array $overrides = []): UasMission
         'flight_route' => [],
         'flight_radius_m' => null,
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => null,
         'uas_pilot_id' => null,
         'planned_start_at' => now()->addDay(),
@@ -51,7 +73,7 @@ function spatialRuleMission(array $overrides = []): UasMission
     ]);
 }
 
-function spatialRuleUser(): User
+function spatialRuleUser(?UasOperator $operator = null): User
 {
     $user = User::factory()->create();
 
@@ -62,6 +84,17 @@ function spatialRuleUser(): User
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => UasOperatorMembership::ROLE_REMOTE_PILOT,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -98,8 +131,9 @@ it('does not evaluate missions without captured geometry', function () {
 it('exposes spatial rule review results on the mission show page', function () {
     $this->withoutVite();
 
-    $user = spatialRuleUser();
-    $mission = spatialRuleMission();
+    $operator = spatialRuleOperator();
+    $user = spatialRuleUser($operator);
+    $mission = spatialRuleMission([], $operator);
 
     $this->actingAs($user)
         ->get("/missions/{$mission->id}")

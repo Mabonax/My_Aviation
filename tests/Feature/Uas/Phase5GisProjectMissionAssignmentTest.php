@@ -53,9 +53,10 @@ function gisMissionAssignmentUser(array $permissions = ['gis.view', 'gis.create'
     return $user;
 }
 
-function gisMissionProject(User $user, array $overrides = []): UasGisProject
+function gisMissionProject(User $user, UasOperator $operator, array $overrides = []): UasGisProject
 {
     return UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         'project_code' => 'GIS-MSN-001',
         'name' => 'Regional mapping programme',
         'project_type' => 'environmental_mapping',
@@ -118,7 +119,7 @@ it('requires GIS update permission to assign missions to projects', function () 
 
     $operator = gisMissionAssignmentOperator();
     $viewer = gisMissionAssignmentUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
-    $project = gisMissionProject($viewer);
+    $project = gisMissionProject($viewer, $operator);
     $mission = gisOperationalMission($operator);
 
     $this->actingAs($viewer)->get("/gis-projects/{$project->id}/missions/create")->assertForbidden();
@@ -128,7 +129,7 @@ it('requires GIS update permission to assign missions to projects', function () 
 it('assigns an operational mission to a GIS project with mapping evidence intent', function () {
     $operator = gisMissionAssignmentOperator();
     $user = gisMissionAssignmentUser([], $operator);
-    $project = gisMissionProject($user);
+    $project = gisMissionProject($user, $operator);
     $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)
@@ -153,8 +154,8 @@ it('assigns an operational mission to a GIS project with mapping evidence intent
 it('prevents one mission being assigned to multiple GIS projects', function () {
     $operator = gisMissionAssignmentOperator();
     $user = gisMissionAssignmentUser([], $operator);
-    $project = gisMissionProject($user);
-    $otherProject = gisMissionProject($user, ['project_code' => 'GIS-MSN-002']);
+    $project = gisMissionProject($user, $operator);
+    $otherProject = gisMissionProject($user, $operator, ['project_code' => 'GIS-MSN-002']);
     $mission = gisOperationalMission($operator);
 
     UasGisProjectMission::query()->create([
@@ -171,7 +172,7 @@ it('prevents one mission being assigned to multiple GIS projects', function () {
 it('validates mapping objective capture plan outputs and field verification state', function () {
     $operator = gisMissionAssignmentOperator();
     $user = gisMissionAssignmentUser([], $operator);
-    $project = gisMissionProject($user);
+    $project = gisMissionProject($user, $operator);
     $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)
@@ -190,7 +191,7 @@ it('exposes assignable missions and project mission summaries through Inertia', 
 
     $operator = gisMissionAssignmentOperator();
     $user = gisMissionAssignmentUser([], $operator);
-    $project = gisMissionProject($user);
+    $project = gisMissionProject($user, $operator);
     $mission = gisOperationalMission($operator);
 
     $this->actingAs($user)

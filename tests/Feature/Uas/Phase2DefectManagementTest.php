@@ -102,7 +102,6 @@ function defectPilot(): UasPilot
 
     PilotCertificate::query()->create([
         'uas_pilot_id' => $pilot->id,
-        'uas_operator_id' => $operator?->id,
         'certificate_number' => 'RPC-DEF-'.fake()->unique()->numberBetween(1000, 9999),
         'issue_date' => now()->subYear()->toDateString(),
         'expiry_date' => now()->addYear()->toDateString(),
@@ -198,7 +197,7 @@ it('requires mission permissions for defect routes', function () {
 it('reports a mission-linked grounding defect, audits it and blocks aircraft serviceability', function () {
     $operator = defectOperator();
     $user = defectUser([], $operator);
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF1']);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF1'], $operator);
     $mission = defectMission($aircraft, [], $operator);
 
     $this->actingAs($user)
@@ -233,7 +232,7 @@ it('reports a mission-linked grounding defect, audits it and blocks aircraft ser
 it('reports top-level inspection defects and applies flight restricted serviceability impact', function () {
     $operator = defectOperator();
     $user = defectUser([], $operator);
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF2']);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF2'], $operator);
 
     $this->actingAs($user)
         ->post('/defects', defectPayload([
@@ -271,7 +270,7 @@ it('exposes defect reports through Inertia and mission defect summaries', functi
 
     $operator = defectOperator();
     $user = defectUser([], $operator);
-    $aircraft = defectAircraft(['registration' => 'ZU-DEF5']);
+    $aircraft = defectAircraft(['registration' => 'ZU-DEF5'], $operator);
     $mission = defectMission($aircraft, [], $operator);
 
     $this->actingAs($user)

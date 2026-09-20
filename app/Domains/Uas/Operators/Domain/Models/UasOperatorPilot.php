@@ -18,10 +18,15 @@ class UasOperatorPilot extends Model
     protected $fillable = [
         'uas_operator_id',
         'uas_pilot_id',
+        'uas_operator_membership_id',
         'assignment_role',
         'status',
         'approved_from',
         'approved_until',
+        'approved_at',
+        'approved_by',
+        'suspended_at',
+        'ended_at',
         'notes',
         'created_by',
     ];
@@ -31,6 +36,9 @@ class UasOperatorPilot extends Model
         return [
             'approved_from' => 'date',
             'approved_until' => 'date',
+            'approved_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'ended_at' => 'datetime',
         ];
     }
 
@@ -43,6 +51,9 @@ class UasOperatorPilot extends Model
     {
         return $this->belongsTo(UasPilot::class, 'uas_pilot_id');
     }
+
+    public function membership(): BelongsTo { return $this->belongsTo(UasOperatorMembership::class, 'uas_operator_membership_id'); }
+    public function approver(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
 
     public function creator(): BelongsTo
     {

@@ -11,6 +11,8 @@ use App\Domains\Uas\FlightFolios\Domain\Models\AircraftFlightFolio;
 use App\Domains\Uas\FlightLogs\Domain\Models\PilotLogEntry;
 use App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Domains\Uas\Tracks\Domain\Models\UasFlightTrack;
@@ -41,6 +43,44 @@ function postFlightPropagationUser(array $permissions = ['missions.view', 'missi
     $role->users()->attach($user);
 
     return $user;
+}
+
+function postFlightPropagationOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Post Flight Operator '.str()->upper(str()->random(5)),
+        'trading_name' => 'Post Flight Operator',
+        'status' => 'active',
+        'accountable_manager' => 'Post Flight Accountable Manager',
+        'responsible_person_flight_operations' => 'Post Flight Operations',
+        'responsible_person_aircraft' => 'Post Flight Aircraft Lead',
+        'regulatory_source' => 'TR-010 post-flight tenancy fixture',
+        'regulatory_source_version' => 'v1',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Post-flight propagation tenant verification.',
+        'responsible_role' => 'Operations Manager',
+    ]);
+}
+
+function postFlightAuthorize(User $user, UasMission $mission, string $role = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): void
+{
+    $operator = $mission->operator;
+    if (! $operator) {
+        return;
+    }
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operator->id,
+        'user_id' => $user->id,
+        'membership_role' => $role,
+        'status' => UasOperatorMembership::STATUS_ACTIVE,
+    ]);
+
+    if ($mission->uas_aircraft_id) {
+        $operator->aircraft()->syncWithoutDetaching([
+            $mission->uas_aircraft_id => ['assignment_role' => 'operated_aircraft', 'status' => 'active'],
+        ]);
+    }
 }
 
 function postFlightPropagationPilot(): UasPilot
@@ -74,10 +114,12 @@ function postFlightPropagationAircraft(): UasAircraft
 
 function postFlightPropagationMission(array $overrides = []): UasMission
 {
+    $operator = $overrides['operator'] ?? postFlightPropagationOperator();
     $pilot = $overrides['pilot'] ?? postFlightPropagationPilot();
     $aircraft = $overrides['aircraft'] ?? postFlightPropagationAircraft();
 
     return UasMission::query()->create(array_merge([
+        'uas_operator_id' => $operator->id,
         'mission_number' => 'MIS-PF-'.str()->upper(str()->random(6)),
         'purpose' => 'Post-flight propagation test',
         'location' => 'Midrand test range',
@@ -104,7 +146,7 @@ function postFlightPropagationMission(array $overrides = []): UasMission
         'regulatory_effective_date' => '2026-09-09',
         'regulatory_applicability' => 'Mission post-flight propagation.',
         'responsible_role' => 'Operations Manager',
-    ], Arr::except($overrides, ['pilot', 'aircraft'])));
+    ], Arr::except($overrides, ['operator', 'pilot', 'aircraft'])));
 }
 
 function postFlightPropagationChecklist(UasMission $mission, string $state = 'completed', ?string $exceptions = null): UasMissionChecklist
@@ -213,6 +255,7 @@ function postFlightPropagationEvidence(UasMission $mission, User $actor): void
 it('propagates completed mission close-out into pilot logbook aircraft folio and audit evidence', function () {
     $user = postFlightPropagationUser();
     $mission = postFlightPropagationMission();
+    postFlightAuthorize($user, $mission);
     postFlightPropagationChecklist($mission, 'completed_with_exceptions', 'Propeller nick deferred to maintenance follow-up.');
     postFlightPropagationEvidence($mission, $user);
 
@@ -244,6 +287,7 @@ it('propagates completed mission close-out into pilot logbook aircraft folio and
 it('is idempotent when post-flight propagation is run more than once', function () {
     $user = postFlightPropagationUser();
     $mission = postFlightPropagationMission();
+    postFlightAuthorize($user, $mission);
     postFlightPropagationChecklist($mission);
     postFlightPropagationEvidence($mission, $user);
 
@@ -258,8 +302,10 @@ it('is idempotent when post-flight propagation is run more than once', function 
 it('blocks propagation until mission is completed and post-flight checklist is clear', function () {
     $user = postFlightPropagationUser();
     $plannedMission = postFlightPropagationMission(['lifecycle_state' => MissionLifecycleState::Planning]);
+    postFlightAuthorize($user, $plannedMission);
     postFlightPropagationChecklist($plannedMission);
     $blockedMission = postFlightPropagationMission();
+    postFlightAuthorize($user, $blockedMission);
     postFlightPropagationChecklist($blockedMission, 'blocked');
 
     $this->actingAs($user)->post(route('missions.post-flight-propagation', $plannedMission), postFlightClosurePayload())->assertInvalid(['mission']);
@@ -272,6 +318,7 @@ it('blocks propagation until mission is completed and post-flight checklist is c
 it('exposes and writes post-flight propagation through API V1', function () {
     $user = postFlightPropagationUser();
     $mission = postFlightPropagationMission();
+    postFlightAuthorize($user, $mission);
     postFlightPropagationChecklist($mission);
     postFlightPropagationEvidence($mission, $user);
 
@@ -302,6 +349,7 @@ it('renders the mission close-out propagation panel', function () {
 
     $user = postFlightPropagationUser(['missions.view']);
     $mission = postFlightPropagationMission();
+    postFlightAuthorize($user, $mission, UasOperatorMembership::ROLE_REMOTE_PILOT);
     postFlightPropagationChecklist($mission);
 
     $this->actingAs($user)

@@ -188,7 +188,7 @@ it('authenticates and authorizes register detail generation and acknowledgement 
     Sanctum::actingAs(User::factory()->create());
     $this->getJson('/api/v1/aeronautical-information')->assertForbidden();
     $this->getJson("/api/v1/missions/{$mission->id}/briefing")->assertStatus(409);
-    $this->postJson("/api/v1/missions/{$mission->id}/briefing")->assertStatus(409);
+    $this->postJson("/api/v1/missions/{$mission->id}/briefing")->assertForbidden();
     $actor = aimPlatformAdmin();
     Sanctum::actingAs($actor);
     aimSync([aimRecord()]);

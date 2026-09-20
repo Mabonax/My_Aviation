@@ -42,7 +42,10 @@ class MissionOptions
             'pilots' => UasPilot::query()
                 ->when(! $global, fn ($query) => $query->whereHas('operators', fn ($operators) => $operators
                     ->whereIn('uas_operators.id', $operatorIds)
-                    ->where('uas_operator_pilots.status', 'active')))
+                    ->where('uas_operator_pilots.status', 'active')
+                    ->whereHas('activeMemberships', fn ($memberships) => $memberships->whereColumn('uas_operator_memberships.user_id', 'uas_pilots.user_id'))
+                    ->where(fn ($q) => $q->whereNull('uas_operator_pilots.approved_from')->orWhereDate('uas_operator_pilots.approved_from', '<=', today()))
+                    ->where(fn ($q) => $q->whereNull('uas_operator_pilots.approved_until')->orWhereDate('uas_operator_pilots.approved_until', '>=', today()))))
                 ->orderBy('last_name')
                 ->orderBy('first_name')
                 ->get(['id', 'first_name', 'last_name'])

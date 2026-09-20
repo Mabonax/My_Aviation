@@ -1,0 +1,27 @@
+<?php
+use App\Domains\Uas\Operators\Application\Actions\ApprovePilotForOperator;
+use App\Domains\Uas\Operators\Application\Services\PilotOperatorApproval;
+use App\Domains\Uas\Operators\Domain\Models\{UasOperator,UasOperatorMembership};
+use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
+use App\Models\User;
+use Illuminate\Validation\ValidationException;
+function tr006Operator():UasOperator{return UasOperator::query()->create(['legal_entity'=>'TR006 Air','trading_name'=>'TR006','operator_code'=>'TR006','status'=>'active']);}
+it('requires active membership before pilot operational approval',function(){
+ $op=tr006Operator();$user=User::factory()->create();$actor=User::factory()->create();$pilot=UasPilot::query()->create(['user_id'=>$user->id,'first_name'=>'Test','last_name'=>'Pilot','status'=>'active']);
+ expect(fn()=>app(ApprovePilotForOperator::class)->execute($op,$pilot,'remote_pilot',$actor))->toThrow(ValidationException::class);
+});
+it('approves only valid active member pilots and resolves validity window',function(){
+ $op=tr006Operator();$user=User::factory()->create();$actor=User::factory()->create();$pilot=UasPilot::query()->create(['user_id'=>$user->id,'first_name'=>'Valid','last_name'=>'Pilot','status'=>'active']);
+ UasOperatorMembership::query()->create(['uas_operator_id'=>$op->id,'user_id'=>$user->id,'membership_role'=>'remote_pilot','status'=>'active','source'=>'admin','activated_at'=>now()]);
+ $a=app(ApprovePilotForOperator::class)->execute($op,$pilot,'remote_pilot',$actor,today()->toDateString(),today()->addMonth()->toDateString());
+ expect(app(PilotOperatorApproval::class)->isApproved($op->id,$pilot))->toBeTrue()->and($a->uas_operator_membership_id)->not->toBeNull();
+});
+it('suspension and ended membership prevent operational approval resolution',function(){
+ $op=tr006Operator();$user=User::factory()->create();$actor=User::factory()->create();$pilot=UasPilot::query()->create(['user_id'=>$user->id,'first_name'=>'Suspend','last_name'=>'Pilot','status'=>'active']);
+ $m=UasOperatorMembership::query()->create(['uas_operator_id'=>$op->id,'user_id'=>$user->id,'membership_role'=>'remote_pilot','status'=>'active','source'=>'admin','activated_at'=>now()]);
+ $a=app(ApprovePilotForOperator::class)->execute($op,$pilot,'remote_pilot',$actor);
+ app(ApprovePilotForOperator::class)->suspend($a,$actor);
+ expect(app(PilotOperatorApproval::class)->isApproved($op->id,$pilot))->toBeFalse();
+ $a=app(ApprovePilotForOperator::class)->reinstate($a,$actor); expect(app(PilotOperatorApproval::class)->isApproved($op->id,$pilot))->toBeTrue();
+ $m->update(['status'=>'ended','left_at'=>now()]); expect(app(PilotOperatorApproval::class)->isApproved($op->id,$pilot))->toBeFalse();
+});

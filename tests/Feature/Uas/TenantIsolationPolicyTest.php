@@ -84,12 +84,11 @@ it('blocks linking one GIS project across operator tenants', function () {
         'updated_by' => $user->id,
     ]);
     $missionA = UasMission::query()->create(['mission_number'=>'GIS-A','uas_operator_id'=>$alpha->id,'purpose'=>'A','location'=>'A','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$user->id,'updated_by'=>$user->id]);
-    \App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission::query()->create(['uas_gis_project_id'=>$project->id,'uas_mission_id'=>$missionA->id,'mapping_objective'=>'Seed','capture_plan'=>'Seed','expected_outputs'=>[],'field_verification_required'=>false,'status'=>'planned','assigned_by'=>$user->id]);
-    $missionB = UasMission::query()->create(['mission_number'=>'GIS-B','uas_operator_id'=>$bravo->id,'purpose'=>'B','location'=>'B','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$user->id,'updated_by'=>$user->id]);
+        $missionB = UasMission::query()->create(['mission_number'=>'GIS-B','uas_operator_id'=>$bravo->id,'purpose'=>'B','location'=>'B','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$user->id,'updated_by'=>$user->id]);
 
-    app(AssignMissionToGisProject::class)->execute($project, [
-        'uas_mission_id'=>$missionA->id,'mapping_objective'=>'A','capture_plan'=>'A','expected_outputs'=>[],'field_verification_required'=>false,
-    ], $user);
+    \App\Domains\Uas\Geography\Domain\Models\UasGisProjectMission::query()->create([
+        'uas_gis_project_id'=>$project->id,'uas_mission_id'=>$missionA->id,'mapping_objective'=>'A','capture_plan'=>'A','expected_outputs'=>[],'field_verification_required'=>false,'status'=>'planned','assigned_by'=>$user->id,
+    ]);
 
     expect(fn () => app(AssignMissionToGisProject::class)->execute($project, [
         'uas_mission_id'=>$missionB->id,'mapping_objective'=>'B','capture_plan'=>'B','expected_outputs'=>[],'field_verification_required'=>false,

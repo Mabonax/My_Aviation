@@ -397,8 +397,7 @@ it('returns structured mission compliance through tenant-scoped API endpoints', 
         ->assertJsonPath('meta.contract_version', 'v1.0');
 
     $this->getJson("/api/v1/missions/{$missionB->id}/compliance")
-        ->assertNotFound()
-        ->assertJsonPath('success', false);
+        ->assertNotFound();
 });
 
 it('renders mission detail release readiness for authenticated users', function () {

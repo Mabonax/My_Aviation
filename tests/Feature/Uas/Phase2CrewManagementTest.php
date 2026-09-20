@@ -138,10 +138,11 @@ it('requires mission update permission for crew assignment routes', function () 
 });
 
 it('assigns a dedicated mission crew member with briefing competency acceptance and audit evidence', function () {
-    $user = crewUser();
+    $operator = crewOperator();
+    $user = crewUser([], $operator);
     $pilot = crewPilot();
     $linkedUser = User::factory()->create(['name' => 'Crew Linked User']);
-    $mission = crewMission();
+    $mission = crewMission([], $operator);
 
     $this->actingAs($user)
         ->post("/missions/{$mission->id}/crew", crewPayload([
@@ -174,9 +175,10 @@ it('assigns a dedicated mission crew member with briefing competency acceptance 
 it('exposes crew assignment options and mission crew summary on mission screens', function () {
     $this->withoutVite();
 
-    $user = crewUser();
+    $operator = crewOperator();
+    $user = crewUser([], $operator);
     crewPilot();
-    $mission = crewMission();
+    $mission = crewMission([], $operator);
 
     $this->actingAs($user)
         ->get("/missions/{$mission->id}/crew/create")

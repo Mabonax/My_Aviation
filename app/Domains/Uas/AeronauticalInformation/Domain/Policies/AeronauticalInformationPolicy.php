@@ -9,7 +9,9 @@ class AeronauticalInformationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyUasPermission(['aeronautical-information.view', 'missions.view']) || $user->activeOperatorMemberships()->exists();
+        return $user->hasAnyPlatformAuthority(['platform.super_admin', 'platform.support', 'platform.regulatory_admin'])
+            || $user->hasAnyUasPermission(['aeronautical-information.view', 'missions.view'])
+            || $user->activeOperatorMemberships()->exists();
     }
 
     public function view(User $user, AeronauticalInformationItem $item): bool
@@ -19,11 +21,13 @@ class AeronauticalInformationPolicy
 
     public function manage(User $user): bool
     {
-        return $user->hasUasPermission('aeronautical-information.manage');
+        return $user->hasAnyPlatformAuthority(['platform.super_admin', 'platform.regulatory_admin'])
+            || $user->hasUasPermission('aeronautical-information.manage');
     }
 
     public function sync(User $user): bool
     {
-        return $user->hasUasPermission('aeronautical-information.sync');
+        return $user->hasAnyPlatformAuthority(['platform.super_admin', 'platform.regulatory_admin'])
+            || $user->hasUasPermission('aeronautical-information.sync');
     }
 }

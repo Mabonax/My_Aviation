@@ -9,7 +9,7 @@ use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
 function tr010Operator(string $name): UasOperator {
-    return UasOperator::query()->create(['legal_entity'=>$name,'trading_name'=>$name,'operator_code'=>strtoupper(substr(md5($name),0,8)),'status'=>'active']);
+    return UasOperator::query()->create(['legal_entity'=>$name,'trading_name'=>$name,'status'=>'active','accountable_manager'=>'TR010 Manager','responsible_person_flight_operations'=>'TR010 Flight Ops','responsible_person_aircraft'=>'TR010 Aircraft','regulatory_source'=>'TR-010','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Isolation verification','responsible_role'=>'Accountable Manager']);
 }
 function tr010Member(UasOperator $operator, string $role='remote_pilot'): array {
     $user=User::factory()->create();

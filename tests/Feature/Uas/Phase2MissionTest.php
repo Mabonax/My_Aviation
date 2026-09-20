@@ -12,6 +12,8 @@ use App\Domains\Uas\Missions\Domain\Services\MissionReleaseGate;
 use App\Domains\Uas\Pilots\Domain\Models\PilotCertificate;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 
 function missionPayload(array $overrides = []): array
@@ -39,7 +41,26 @@ function missionPayload(array $overrides = []): array
     ];
 }
 
-function missionUser(array $permissions = ['missions.view', 'missions.create']): User
+function missionOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Mission Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'MIS-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Accountable Manager',
+        'responsible_person_flight_operations' => 'Flight Operations',
+        'responsible_person_aircraft' => 'Aircraft Lead',
+        'safety_manager' => 'Safety Manager',
+        'security_coordinator' => 'Security Coordinator',
+        'regulatory_source' => 'YAW TR-010 mission tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Phase 2 mission tenant-aware fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function missionUser(array $permissions = ['missions.view', 'missions.create'], ?UasOperator $operator = null): User
 {
     $user = User::factory()->create();
 
@@ -51,10 +72,21 @@ function missionUser(array $permissions = ['missions.view', 'missions.create']):
 
     $role->users()->attach($user);
 
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => UasOperatorMembership::ROLE_OPERATIONS_MANAGER,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
+
     return $user;
 }
 
-function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', string $certificateStatus = 'valid', ?string $certificateExpiry = null): array
+function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', string $certificateStatus = 'valid', ?string $certificateExpiry = null, ?UasOperator $operator = null): array
 {
     $pilot = UasPilot::query()->create([
         'first_name' => 'Anele',
@@ -97,6 +129,13 @@ function missionPilotAndAircraft(string $aircraftStatus = 'active_serviceable', 
         'issue_date' => now()->subMonth()->toDateString(),
     ]);
 
+    if ($operator) {
+        $operator->aircraft()->attach($aircraft->id, [
+            'assignment_role' => 'operated_aircraft',
+            'status' => 'active',
+        ]);
+    }
+
     AircraftApproval::query()->create([
         'uas_aircraft_id' => $aircraft->id,
         'approval_type' => 'uasla',
@@ -120,10 +159,12 @@ it('requires mission permissions for Phase 2 mission routes', function () {
 it('creates a mission record with lifecycle, release gate and audit evidence', function () {
     $this->withoutVite();
 
-    $user = missionUser();
-    [$pilot, $aircraft] = missionPilotAndAircraft();
+    $operator = missionOperator();
+    $user = missionUser([], $operator);
+    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator);
 
     $response = $this->actingAs($user)->post('/missions', missionPayload([
+        'uas_operator_id' => $operator->id,
         'uas_pilot_id' => $pilot->id,
         'uas_aircraft_id' => $aircraft->id,
     ]));
@@ -176,10 +217,12 @@ it('distinguishes regulatory release blocks from internal policy attention', fun
 
 
 it('captures mission map geometry for FR-GEO-001', function () {
-    $user = missionUser();
-    [$pilot, $aircraft] = missionPilotAndAircraft();
+    $operator = missionOperator();
+    $user = missionUser([], $operator);
+    [$pilot, $aircraft] = missionPilotAndAircraft(operator: $operator);
 
     $response = $this->actingAs($user)->post('/missions', missionPayload([
+        'uas_operator_id' => $operator->id,
         'uas_pilot_id' => $pilot->id,
         'uas_aircraft_id' => $aircraft->id,
         'location_search_query' => 'Midrand test range gate',
@@ -220,10 +263,12 @@ it('captures mission map geometry for FR-GEO-001', function () {
 });
 
 it('validates mission geometry coordinate bounds', function () {
-    $user = missionUser();
+    $operator = missionOperator();
+    $user = missionUser([], $operator);
 
     $this->actingAs($user)
         ->post('/missions', missionPayload([
+            'uas_operator_id' => $operator->id,
             'takeoff_point' => ['latitude' => -95, 'longitude' => 28.1263],
             'flight_radius_m' => 0,
         ]))

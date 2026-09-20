@@ -6,6 +6,7 @@ use App\Domains\Uas\Api\Http\Controllers\V1\AuthController;
 use App\Domains\Uas\Api\Http\Controllers\V1\CurrentUserController;
 use App\Domains\Uas\Api\Http\Controllers\V1\EvidenceDocumentController;
 use App\Domains\Uas\Api\Http\Controllers\V1\MissionController;
+use App\Domains\Uas\Api\Http\Controllers\V1\OperatorMembershipLifecycleController;
 use App\Domains\Uas\Api\Http\Controllers\V1\TenantOperationalController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('me/pilot', [CurrentUserController::class, 'pilot'])->name('me.pilot');
         Route::get('me/operators', [CurrentUserController::class, 'operators'])->name('me.operators');
         Route::get('me/operator-context', [CurrentUserController::class, 'operatorContext'])->name('me.operator-context');
+        Route::get('me/operator-memberships', [OperatorMembershipLifecycleController::class, 'index'])->name('me.operator-memberships');
+        Route::post('operators/{operator}/membership-invitations', [OperatorMembershipLifecycleController::class, 'invite'])->name('operators.memberships.invite');
+        Route::post('operators/{operator}/join-requests', [OperatorMembershipLifecycleController::class, 'requestJoin'])->name('operators.memberships.request');
+        Route::post('operator-memberships/{membership}/transition', [OperatorMembershipLifecycleController::class, 'transition'])->name('operator-memberships.transition');
         Route::get('aircraft-catalogue', [AircraftCatalogueController::class, 'index'])->name('aircraft-catalogue.index');
         Route::get('aircraft-catalogue/{aircraftModel}', [AircraftCatalogueController::class, 'show'])->name('aircraft-catalogue.show');
         Route::get('aircraft', [AircraftController::class, 'index'])->name('aircraft.index');

@@ -22,7 +22,10 @@ class MissionPolicy
 
     public function create(User $user): bool
     {
-        return $this->operatorContext->hasGlobalOperatorAccess($user) || $user->activeOperatorMemberships()->exists();
+        return $this->operatorContext->hasGlobalOperatorAccess($user)
+            || $user->activeOperatorMemberships()
+                ->whereIn('membership_role', \App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership::managerRoles())
+                ->exists();
     }
 
     public function update(User $user, UasMission $mission): bool

@@ -4,12 +4,13 @@ use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Operators\Application\Queries\ApplicationRenewalPackReport;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperatorCertificateCase;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Regulations\Domain\Models\RegulatoryFee;
 use App\Domains\Uas\Regulations\Domain\Models\RegulatoryForm;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function applicationPackUser(array $permissions = ['operators.view']): User
+function applicationPackUser(array $permissions = ['operators.view'], ?UasOperator $operator = null): User
 {
     $user = User::factory()->create();
 
@@ -20,6 +21,17 @@ function applicationPackUser(array $permissions = ['operators.view']): User
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => UasOperatorMembership::ROLE_REMOTE_PILOT,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -129,8 +141,8 @@ it('builds renewal pack readiness with current forms fees checklist and evidence
 it('exposes the application pack through Inertia and links from the case page', function () {
     $this->withoutVite();
 
-    $user = applicationPackUser();
     $operator = applicationPackOperator(['legal_entity' => 'Visible Pack Operator']);
+    $user = applicationPackUser([], $operator);
     $case = applicationPackCase($operator);
 
     RegulatoryForm::query()->create([

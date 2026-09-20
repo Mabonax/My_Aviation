@@ -22,7 +22,7 @@ function tr010Aircraft(UasOperator $operator, string $registration): UasAircraft
     return $aircraft;
 }
 function tr010Mission(UasOperator $operator, User $creator, string $number): UasMission {
-    return UasMission::query()->create(['mission_number'=>$number,'uas_operator_id'=>$operator->id,'purpose'=>'Isolation verification','location'=>'Test','lifecycle_state'=>MissionLifecycleState::Draft,'created_by'=>$creator->id,'updated_by'=>$creator->id]);
+    return UasMission::query()->create(['mission_number'=>$number,'uas_operator_id'=>$operator->id,'purpose'=>'Isolation verification','location'=>'Test','lifecycle_state'=>MissionLifecycleState::Draft,'regulatory_source'=>'TR tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant isolation verification','responsible_role'=>'Operations Manager','created_by'=>$creator->id,'updated_by'=>$creator->id]);
 }
 
 it('rejects a forged API operator header and hides direct foreign mission IDs', function () {

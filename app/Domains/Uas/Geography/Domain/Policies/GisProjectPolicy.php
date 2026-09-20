@@ -18,10 +18,16 @@ class GisProjectPolicy
 
     public function view(User $user, UasGisProject $project): bool
     {
-        return $this->operatorContext->hasGlobalOperatorAccess($user)
-            || $project->projectMissions()->whereHas('mission', fn ($mission) =>
-                $mission->whereIn('uas_operator_id', $this->operatorContext->accessibleOperatorIds($user))
-            )->exists();
+        if ($this->operatorContext->hasGlobalOperatorAccess($user)) {
+            return true;
+        }
+
+        $accessible = $this->operatorContext->accessibleOperatorIds($user);
+
+        return ($project->uas_operator_id && in_array((int) $project->uas_operator_id, $accessible, true))
+            || (! $project->uas_operator_id && $project->projectMissions()->whereHas('mission', fn ($mission) =>
+                $mission->whereIn('uas_operator_id', $accessible)
+            )->exists());
     }
 
     public function create(User $user): bool
@@ -39,7 +45,9 @@ class GisProjectPolicy
             return true;
         }
         $managed = $this->managedOperatorIds($user);
-        return $project->projectMissions()->whereHas('mission', fn ($mission) => $mission->whereIn('uas_operator_id', $managed))->exists();
+
+        return ($project->uas_operator_id && in_array((int) $project->uas_operator_id, $managed, true))
+            || (! $project->uas_operator_id && $project->projectMissions()->whereHas('mission', fn ($mission) => $mission->whereIn('uas_operator_id', $managed))->exists());
     }
 
     public function delete(User $user, UasGisProject $project): bool { return false; }

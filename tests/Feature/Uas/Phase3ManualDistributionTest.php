@@ -5,11 +5,12 @@ use App\Domains\Uas\Operators\Application\Queries\ManualRevisionDistributionRepo
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualDistribution;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualRevision;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function distributionUser(array $permissions = ['operators.view', 'operators.update']): User
+function distributionUser(array $permissions = ['operators.view', 'operators.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_ADMINISTRATOR): User
 {
     $user = User::factory()->create();
 
@@ -20,6 +21,17 @@ function distributionUser(array $permissions = ['operators.view', 'operators.upd
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -113,15 +125,15 @@ it('requires operator update permission for manual distribution routes', functio
 
     $operator = distributionOperator();
     $revision = distributionRevision($operator);
-    $viewer = distributionUser(['operators.view']);
+    $viewer = distributionUser(['operators.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/operations-manual-revisions/{$revision->id}/distributions/create")->assertForbidden();
     $this->actingAs($viewer)->post("/operations-manual-revisions/{$revision->id}/distributions", distributionPayload())->assertForbidden();
 });
 
 it('records required manual recipients with FR-OM-002 traceability and audit evidence', function () {
-    $user = distributionUser();
     $operator = distributionOperator();
+    $user = distributionUser([], $operator);
     $revision = distributionRevision($operator);
 
     $this->actingAs($user)
@@ -146,8 +158,8 @@ it('records required manual recipients with FR-OM-002 traceability and audit evi
 });
 
 it('validates required recipient identity distribution values and duplicates per revision role', function () {
-    $user = distributionUser();
     $operator = distributionOperator();
+    $user = distributionUser([], $operator);
     $revision = distributionRevision($operator);
     storedDistribution($revision, ['recipient_name' => 'John Mabona', 'recipient_role' => 'Accountable Manager']);
 
@@ -173,8 +185,8 @@ it('validates required recipient identity distribution values and duplicates per
 it('exposes distribution creation page and manual revision distribution report through Inertia', function () {
     $this->withoutVite();
 
-    $user = distributionUser();
     $operator = distributionOperator(['legal_entity' => 'Visible Distribution Operator']);
+    $user = distributionUser([], $operator);
     $revision = distributionRevision($operator, ['revision_code' => 'OM-REV-VISIBLE-DIST']);
     storedDistribution($revision);
 

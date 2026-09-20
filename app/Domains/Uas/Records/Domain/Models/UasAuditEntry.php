@@ -4,6 +4,7 @@ namespace App\Domains\Uas\Records\Domain\Models;
 
 use App\Domains\Uas\Regulations\Domain\Models\RegulatoryRequirement;
 use App\Models\User;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -12,6 +13,8 @@ class UasAuditEntry extends Model
 {
     protected $fillable = [
         'user_id',
+        'uas_operator_id',
+        'operator_context_source',
         'action',
         'auditable_type',
         'auditable_id',
@@ -36,6 +39,11 @@ class UasAuditEntry extends Model
     public function auditable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function operator(): BelongsTo
+    {
+        return $this->belongsTo(UasOperator::class, 'uas_operator_id');
     }
 
     public function user(): BelongsTo

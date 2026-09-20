@@ -5,10 +5,31 @@ use App\Domains\Uas\Crew\Domain\Models\UasMissionCrewMember;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function crewMission(array $overrides = []): UasMission
+function crewOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'Crew Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'CREW-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Accountable Manager',
+        'responsible_person_flight_operations' => 'Flight Operations',
+        'responsible_person_aircraft' => 'Aircraft Lead',
+        'safety_manager' => 'Safety Manager',
+        'security_coordinator' => 'Security Coordinator',
+        'regulatory_source' => 'YAW TR-010 crew tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Phase 2 tenant-aware test fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function crewMission(array $overrides = [], ?UasOperator $operator = null): UasMission
 {
     return UasMission::query()->create([
         'mission_number' => 'MIS-CREW-001',
@@ -16,6 +37,7 @@ function crewMission(array $overrides = []): UasMission
         'client_project' => 'Phase 2 verification',
         'location' => 'Crew test range',
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => null,
         'uas_pilot_id' => null,
         'planned_start_at' => now()->addDay(),
@@ -41,7 +63,7 @@ function crewMission(array $overrides = []): UasMission
     ]);
 }
 
-function crewUser(array $permissions = ['missions.view', 'missions.update']): User
+function crewUser(array $permissions = ['missions.view', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -52,6 +74,17 @@ function crewUser(array $permissions = ['missions.view', 'missions.update']): Us
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -96,8 +129,9 @@ function crewPayload(array $overrides = []): array
 it('requires mission update permission for crew assignment routes', function () {
     $this->withoutVite();
 
-    $mission = crewMission();
-    $viewer = crewUser(['missions.view']);
+    $operator = crewOperator();
+    $mission = crewMission([], $operator);
+    $viewer = crewUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/missions/{$mission->id}/crew/create")->assertForbidden();
     $this->actingAs($viewer)->post("/missions/{$mission->id}/crew", crewPayload())->assertForbidden();
@@ -169,8 +203,9 @@ it('exposes crew assignment options and mission crew summary on mission screens'
 });
 
 it('tracks crew attention when briefing acceptance or competency evidence is incomplete', function () {
-    $user = crewUser();
-    $mission = crewMission();
+    $operator = crewOperator();
+    $user = crewUser([], $operator);
+    $mission = crewMission([], $operator);
 
     $this->actingAs($user)->post("/missions/{$mission->id}/crew", crewPayload([
         'briefing_status' => 'pending',

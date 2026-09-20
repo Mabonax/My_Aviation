@@ -4,11 +4,12 @@ use App\Domains\Uas\Access\Domain\Models\UasRole;
 use App\Domains\Uas\Operators\Application\Queries\OperatorManualRevisionReport;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperationsManualRevision;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function manualUser(array $permissions = ['operators.view', 'operators.update']): User
+function manualUser(array $permissions = ['operators.view', 'operators.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_ADMINISTRATOR): User
 {
     $user = User::factory()->create();
 
@@ -19,6 +20,17 @@ function manualUser(array $permissions = ['operators.view', 'operators.update'])
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -91,7 +103,7 @@ it('requires operator update permission for controlled manual revision routes', 
 
     $operator = manualOperator();
     $revision = storedManualRevision($operator);
-    $viewer = manualUser(['operators.view']);
+    $viewer = manualUser(['operators.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/operators/{$operator->id}/manual-revisions/create")->assertForbidden();
     $this->actingAs($viewer)->post("/operators/{$operator->id}/manual-revisions", manualPayload())->assertForbidden();
@@ -101,8 +113,8 @@ it('requires operator update permission for controlled manual revision routes', 
 });
 
 it('creates a controlled manual revision with FR-OM-001 traceability and audit evidence', function () {
-    $user = manualUser();
     $operator = manualOperator();
+    $user = manualUser([], $operator);
 
     $this->actingAs($user)
         ->post("/operators/{$operator->id}/manual-revisions", manualPayload())
@@ -126,8 +138,8 @@ it('creates a controlled manual revision with FR-OM-001 traceability and audit e
 });
 
 it('marks the referenced manual revision as superseded when a new revision replaces it', function () {
-    $user = manualUser();
     $operator = manualOperator();
+    $user = manualUser([], $operator);
     $oldRevision = storedManualRevision($operator, ['revision_code' => 'OM-REV-000', 'approval_status' => 'approved']);
 
     $this->actingAs($user)
@@ -145,8 +157,8 @@ it('marks the referenced manual revision as superseded when a new revision repla
 });
 
 it('updates manual revision approval details and records an audit trail', function () {
-    $user = manualUser();
     $operator = manualOperator();
+    $user = manualUser([], $operator);
     $revision = storedManualRevision($operator, ['revision_code' => 'OM-REV-001', 'approval_status' => 'internal_review']);
 
     $this->actingAs($user)
@@ -173,8 +185,8 @@ it('updates manual revision approval details and records an audit trail', functi
 });
 
 it('validates controlled manual identity status sections and duplicate revision code per manual', function () {
-    $user = manualUser();
     $operator = manualOperator();
+    $user = manualUser([], $operator);
     storedManualRevision($operator, ['manual_name' => 'VMT Operations Manual', 'revision_code' => 'OM-REV-001']);
 
     $this->actingAs($user)
@@ -196,8 +208,8 @@ it('validates controlled manual identity status sections and duplicate revision 
 it('exposes manual revision pages and operator manual report through Inertia', function () {
     $this->withoutVite();
 
-    $user = manualUser();
     $operator = manualOperator(['legal_entity' => 'Visible Manual Operator']);
+    $user = manualUser([], $operator);
     $revision = storedManualRevision($operator, ['revision_code' => 'OM-REV-VISIBLE']);
 
     $this->actingAs($user)

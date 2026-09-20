@@ -3,6 +3,7 @@
 namespace App\Domains\Uas\Geography\Application\Actions;
 
 use App\Domains\Uas\Geography\Domain\Models\UasGisProject;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
 use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
@@ -10,12 +11,17 @@ use Illuminate\Support\Facades\DB;
 
 class CreateGisProject
 {
-    public function __construct(private readonly RecordAuditEntry $recordAuditEntry) {}
+    public function __construct(
+        private readonly RecordAuditEntry $recordAuditEntry,
+        private readonly CurrentOperatorContext $operatorContext,
+    ) {}
 
     public function execute(array $data, User $actor, ?string $ipAddress = null, ?string $userAgent = null): UasGisProject
     {
         return DB::transaction(function () use ($data, $actor, $ipAddress, $userAgent): UasGisProject {
+            $operator = $this->operatorContext->requireFromRequest(request());
             $project = UasGisProject::query()->create([
+                'uas_operator_id' => $operator->id,
                 'project_code' => $data['project_code'],
                 'name' => $data['name'],
                 'project_type' => $data['project_type'],

@@ -83,6 +83,7 @@ it('requires gis permissions for project routes', function () {
     $operator = gisProjectOperator();
     $viewer = gisProjectUser(['gis.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $viewer->id,
         'updated_by' => $viewer->id,
@@ -134,6 +135,7 @@ it('transitions GIS project workflow state with audit evidence', function () {
     $operator = gisProjectOperator();
     $user = gisProjectUser([], $operator);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,
@@ -158,6 +160,7 @@ it('validates project identity type source evidence and coordinates', function (
     $operator = gisProjectOperator();
     $user = gisProjectUser([], $operator);
     UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,
@@ -184,6 +187,7 @@ it('exposes GIS project register pages through Inertia', function () {
     $operator = gisProjectOperator();
     $user = gisProjectUser([], $operator);
     $project = UasGisProject::query()->create([
+        'uas_operator_id' => $operator->id,
         ...gisProjectPayload(),
         'created_by' => $user->id,
         'updated_by' => $user->id,

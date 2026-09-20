@@ -5,10 +5,31 @@ use App\Domains\Uas\Checklists\Domain\Models\UasChecklistTemplate;
 use App\Domains\Uas\Checklists\Domain\Models\UasMissionChecklist;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
+use App\Domains\Uas\Operators\Domain\Models\UasOperator;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function checklistMission(array $overrides = []): UasMission
+function checklistOperator(): UasOperator
+{
+    return UasOperator::query()->create([
+        'legal_entity' => 'checklist Operator '.str()->upper(str()->random(5)),
+        'registration_number' => 'CHE-'.str()->upper(str()->random(5)),
+        'status' => 'active',
+        'accountable_manager' => 'Accountable Manager',
+        'responsible_person_flight_operations' => 'Flight Operations',
+        'responsible_person_aircraft' => 'Aircraft Lead',
+        'safety_manager' => 'Safety Manager',
+        'security_coordinator' => 'Security Coordinator',
+        'regulatory_source' => 'YAW TR-010 checklist tenancy verification',
+        'regulatory_source_version' => 'TR-010',
+        'regulatory_effective_date' => '2026-09-21',
+        'regulatory_applicability' => 'Phase 2 tenant-aware test fixture.',
+        'responsible_role' => 'Accountable Manager',
+    ]);
+}
+
+function checklistMission(array $overrides = [], ?UasOperator $operator = null): UasMission
 {
     return UasMission::query()->create([
         'mission_number' => 'MIS-CHK-001',
@@ -16,6 +37,7 @@ function checklistMission(array $overrides = []): UasMission
         'client_project' => 'Phase 2 verification',
         'location' => 'Checklist test range',
         'operation_category' => 'inspection',
+        'uas_operator_id' => $operator?->id,
         'uas_aircraft_id' => null,
         'uas_pilot_id' => null,
         'planned_start_at' => now()->addDay(),
@@ -41,7 +63,7 @@ function checklistMission(array $overrides = []): UasMission
     ]);
 }
 
-function checklistUser(array $permissions = ['missions.view', 'missions.update']): User
+function checklistUser(array $permissions = ['missions.view', 'missions.update'], ?UasOperator $operator = null, string $membershipRole = UasOperatorMembership::ROLE_OPERATIONS_MANAGER): User
 {
     $user = User::factory()->create();
 
@@ -52,6 +74,17 @@ function checklistUser(array $permissions = ['missions.view', 'missions.update']
     ]);
 
     $role->users()->attach($user);
+
+    if ($operator) {
+        UasOperatorMembership::query()->create([
+            'uas_operator_id' => $operator->id,
+            'user_id' => $user->id,
+            'membership_role' => $membershipRole,
+            'status' => UasOperatorMembership::STATUS_ACTIVE,
+            'source' => UasOperatorMembership::SOURCE_ADMIN,
+            'activated_at' => now(),
+        ]);
+    }
 
     return $user;
 }
@@ -78,16 +111,18 @@ it('seeds a versioned pre-flight checklist template for FR-CHK-001', function ()
 it('requires mission update permission to open and record a pre-flight checklist', function () {
     $this->withoutVite();
 
-    $mission = checklistMission();
-    $viewer = checklistUser(['missions.view']);
+    $operator = checklistOperator();
+    $mission = checklistMission([], $operator);
+    $viewer = checklistUser(['missions.view'], $operator, UasOperatorMembership::ROLE_REMOTE_PILOT);
 
     $this->actingAs($viewer)->get("/missions/{$mission->id}/pre-flight-checklist")->assertForbidden();
     $this->actingAs($viewer)->post("/missions/{$mission->id}/pre-flight-checklist", ['results' => passingChecklistResults()])->assertForbidden();
 });
 
 it('records performer timestamp version results exceptions and audit evidence', function () {
-    $user = checklistUser();
-    $mission = checklistMission();
+    $operator = checklistOperator();
+    $user = checklistUser([], $operator);
+    $mission = checklistMission([], $operator);
     $template = UasChecklistTemplate::query()->where('type', 'pre_flight')->firstOrFail();
     $results = passingChecklistResults($template, [
         'weather' => ['result' => 'pass', 'notes' => 'Wind below site limit.'],
@@ -118,8 +153,9 @@ it('records performer timestamp version results exceptions and audit evidence', 
 });
 
 it('blocks the checklist state when a required pre-flight item fails', function () {
-    $user = checklistUser();
-    $mission = checklistMission();
+    $operator = checklistOperator();
+    $user = checklistUser([], $operator);
+    $mission = checklistMission([], $operator);
     $template = UasChecklistTemplate::query()->where('type', 'pre_flight')->firstOrFail();
     $results = passingChecklistResults($template, [
         'c2_link' => ['result' => 'fail', 'notes' => 'Link quality unstable.'],
@@ -138,8 +174,9 @@ it('blocks the checklist state when a required pre-flight item fails', function 
 it('exposes the active pre-flight template and latest checklist on mission screens', function () {
     $this->withoutVite();
 
-    $user = checklistUser();
-    $mission = checklistMission();
+    $operator = checklistOperator();
+    $user = checklistUser([], $operator);
+    $mission = checklistMission([], $operator);
 
     $this->actingAs($user)
         ->get("/missions/{$mission->id}/pre-flight-checklist")

@@ -15,8 +15,7 @@ function tr004Operator(string $name): UasOperator
     return UasOperator::query()->create([
         'legal_entity' => $name,
         'trading_name' => $name,
-        'operator_code' => strtoupper(substr(md5($name), 0, 8)),
-        'status' => 'active',
+        'status'=>'active','accountable_manager'=>'Test Manager','responsible_person_flight_operations'=>'Test Flight Ops','responsible_person_aircraft'=>'Test Aircraft','regulatory_source'=>'Tenancy verification','regulatory_source_version'=>'v1','regulatory_effective_date'=>'2026-09-20','regulatory_applicability'=>'Tenant verification','responsible_role'=>'Accountable Manager',
     ]);
 }
 

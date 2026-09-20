@@ -87,7 +87,11 @@ it('sanitizes provider failure at the action API and audit boundaries', function
     $mission = aimMission();
     $health = collect(app(ProviderHealth::class)->execute($mission))->firstWhere('provider', 'operational_test');
     expect($health['health_status'])->toBe('sync_failed')->and($health['usable_for_release'])->toBeFalse();
-    $this->actingAs(aimSafetyPlatformAdmin())->getJson("/api/v1/missions/{$mission->id}/briefing")->assertOk()->assertDontSee('credential-secret');
+    $this->actingAs(aimSafetyPlatformAdmin())
+        ->withHeader('X-YAW-Operator', (string) $mission->uas_operator_id)
+        ->getJson("/api/v1/missions/{$mission->id}/briefing")
+        ->assertOk()
+        ->assertDontSee('credential-secret');
     expect(UasAuditEntry::all()->toJson())->not->toContain('credential-secret');
     expect(ProviderSync::latest('id')->first()->error)->not->toContain('credential-secret');
 });

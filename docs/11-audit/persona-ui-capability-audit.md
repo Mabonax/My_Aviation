@@ -172,3 +172,19 @@ Each implemented UI action must have:
 8. Platform administration
 
 This document is a living traceability baseline. A capability is not considered complete merely because a route, model or screen exists.
+
+
+## Implementation update — P1/P2
+
+Implemented on `audit-persona-ui-capability`:
+
+- Shared server-derived `uiCapabilities` now identifies pilot, operator-user and platform-admin presentation capabilities without replacing backend policies.
+- Navigation is capability-aware; pilot users no longer receive the platform administration catalogue in the sidebar.
+- Missions are surfaced for users with operator/mission capability.
+- Pilot-persona dashboard now uses `MyPilotWorkspace` and shows personal profile/readiness, medical state, credential expiry, logbook hours and assigned missions.
+- Pilot users without a pilot profile receive an onboarding action instead of a platform compliance dashboard.
+- Platform compliance summary is not serialized into the pilot dashboard response, preventing an unnecessary cross-persona data exposure.
+- Operator workspace identifiers use canonical `uasoc_number`.
+- `PersonaUiCapabilityTest` adds automated assertions for pilot capability payload, pilot-only workspace data and retained platform-admin dashboard capability.
+
+Verification remains required locally: focused PHP tests plus frontend build/type validation.

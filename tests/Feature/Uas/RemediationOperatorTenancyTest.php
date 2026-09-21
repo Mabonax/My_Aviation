@@ -273,7 +273,8 @@ it('records audit entries for membership lifecycle and operator assignments', fu
     $admin = tenancyUser(['platform.tenant_admin']);
     $member = tenancyUser();
     $operator = tenancyOperator();
-    $pilot = tenancyPilot();
+    $pilotUser = tenancyUser();
+    $pilot = tenancyPilot(['user_id' => $pilotUser->id]);
     $aircraft = tenancyAircraft();
 
     $this->actingAs($admin)->post(route('operators.memberships.store', $operator), [
@@ -286,6 +287,14 @@ it('records audit entries for membership lifecycle and operator assignments', fu
 
     $this->actingAs($admin)->put(route('operator-memberships.status.update', $membership), ['status' => 'suspended'])->assertRedirect();
     $this->actingAs($admin)->put(route('operator-memberships.status.update', $membership), ['status' => 'ended'])->assertRedirect();
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operator->id,
+        'user_id' => $pilotUser->id,
+        'membership_role' => 'remote_pilot',
+        'status' => 'active',
+        'source' => 'admin',
+        'activated_at' => now(),
+    ]);
     $this->actingAs($admin)->post(route('operators.pilots.store', $operator), ['uas_pilot_id' => $pilot->id])->assertRedirect();
     $this->actingAs($admin)->post(route('operators.aircraft.store', $operator), ['uas_aircraft_id' => $aircraft->id])->assertRedirect();
 
@@ -293,7 +302,7 @@ it('records audit entries for membership lifecycle and operator assignments', fu
         ->and(UasAuditEntry::query()->where('action', 'membership.activated')->exists())->toBeTrue()
         ->and(UasAuditEntry::query()->where('action', 'membership.suspended')->exists())->toBeTrue()
         ->and(UasAuditEntry::query()->where('action', 'membership.ended')->exists())->toBeTrue()
-        ->and(UasAuditEntry::query()->where('action', 'pilot.assigned_to_operator')->exists())->toBeTrue()
+        ->and(UasAuditEntry::query()->where('action', 'pilot.operator_approved')->exists())->toBeTrue()
         ->and(UasAuditEntry::query()->where('action', 'aircraft.assigned_to_operator')->exists())->toBeTrue();
 });
 

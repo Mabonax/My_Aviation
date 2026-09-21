@@ -4,11 +4,11 @@ use App\Domains\Uas\Operators\Application\Services\PilotOperatorApproval;
 use App\Domains\Uas\Operators\Domain\Models\{UasOperator,UasOperatorMembership};
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Models\User;
-use App\Domains\Uas\Authorization\Domain\Models\UasRole;
+use App\Domains\Uas\Access\Domain\Models\UasRole;
 use Illuminate\Validation\ValidationException;
 function tr006Manager():User{
  $u=User::factory()->create();
- $r=UasRole::query()->create(['name'=>'TR006 Platform Manager '.str()->random(6),'slug'=>'tr006-platform-manager-'.str()->lower(str()->random(6)),'permissions'=>['platform.super_admin']]);
+ $r=UasRole::query()->create(['name'=>'tr006-platform-manager-'.str()->lower(str()->random(6)),'label'=>'TR006 Platform Manager','permissions'=>['platform.super_admin']]);
  $u->uasRoles()->attach($r);
  return $u;
 }

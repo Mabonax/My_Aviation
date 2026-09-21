@@ -11,12 +11,14 @@ use App\Domains\Uas\Pilots\Domain\Enums\PilotMedicalStatus;
 use App\Domains\Uas\Pilots\Domain\Enums\PilotProfileStatus;
 use App\Domains\Uas\Pilots\Domain\Models\PilotCertificate;
 use App\Domains\Uas\Pilots\Domain\Services\PilotComplianceEvaluator;
+use App\Domains\Uas\Operators\Application\Services\PilotOperatorApproval;
 
 class MissionComplianceSummary
 {
     public function __construct(
         private readonly AircraftReadinessSummary $aircraftReadiness,
         private readonly PilotComplianceEvaluator $pilotCompliance,
+        private readonly PilotOperatorApproval $pilotOperatorApproval,
         private readonly MissionSpatialRuleEvaluator $spatialRules,
         private readonly \App\Domains\Uas\AeronauticalInformation\Application\Queries\BriefingReadiness $aeronauticalReadiness,
     ) {}
@@ -40,6 +42,7 @@ class MissionComplianceSummary
         $controls = [
             $this->aircraftControl($mission),
             $this->pilotControl($mission),
+            $this->pilotOperatorApprovalControl($mission),
             $this->operatorControl($mission),
             $this->geometryControl($spatial),
             $this->checklistControl($mission),
@@ -125,6 +128,51 @@ class MissionComplianceSummary
             'expiring' => $this->control('pilot_readiness', 'Pilot', 'amber', 'Pilot RPC is inside the revalidation window.', false, $this->pilotEvidence($certificate), basis: 'regulatory'),
             default => $this->control('pilot_readiness', 'Pilot', 'red', "Pilot RPC is {$rpcState}.", true, $this->pilotEvidence($certificate), basis: 'regulatory'),
         };
+    }
+
+
+    private function pilotOperatorApprovalControl(UasMission $mission): array
+    {
+        if (! $mission->operator || ! $mission->pilot) {
+            return $this->control(
+                'pilot_operator_approval',
+                'Pilot / Operator approval',
+                'red',
+                'A current pilot/operator operational approval cannot be established.',
+                true,
+                basis: 'internal_policy',
+            );
+        }
+
+        $assignment = $this->pilotOperatorApproval->activeAssignment($mission->operator->id, $mission->pilot);
+
+        if (! $assignment) {
+            return $this->control(
+                'pilot_operator_approval',
+                'Pilot / Operator approval',
+                'red',
+                'The assigned pilot is not currently approved to operate for this operator.',
+                true,
+                ['operator_id' => $mission->operator->id, 'pilot_id' => $mission->pilot->id],
+                basis: 'internal_policy',
+            );
+        }
+
+        return $this->control(
+            'pilot_operator_approval',
+            'Pilot / Operator approval',
+            'green',
+            'Pilot operational approval for the assigned operator is current.',
+            false,
+            [
+                'operator_id' => $mission->operator->id,
+                'pilot_id' => $mission->pilot->id,
+                'assignment_id' => $assignment->id,
+                'approved_from' => $assignment->approved_from?->toDateString(),
+                'approved_until' => $assignment->approved_until?->toDateString(),
+            ],
+            basis: 'internal_policy',
+        );
     }
 
     private function operatorControl(UasMission $mission): array

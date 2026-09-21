@@ -220,6 +220,33 @@ function missionComplianceMission(array $overrides = []): UasMission
         'responsible_role' => 'Operations Manager',
     ], Arr::except($overrides, ['operator', 'pilot', 'aircraft'])));
     aimPrepareMission($mission);
+
+    if ($operator && $pilot) {
+        $pilotUser = $pilot->user_id ? User::query()->find($pilot->user_id) : null;
+        if (! $pilotUser) {
+            $pilotUser = User::factory()->create();
+            $pilot->forceFill(['user_id' => $pilotUser->id])->save();
+        }
+
+        $membership = UasOperatorMembership::query()->firstOrCreate(
+            ['uas_operator_id' => $operator->id, 'user_id' => $pilotUser->id],
+            ['membership_role' => 'remote_pilot', 'status' => 'active', 'source' => 'admin', 'activated_at' => now()],
+        );
+        $membership->forceFill(['status' => 'active', 'activated_at' => $membership->activated_at ?? now()])->save();
+
+        UasOperatorPilot::query()->updateOrCreate(
+            ['uas_operator_id' => $operator->id, 'uas_pilot_id' => $pilot->id],
+            [
+                'uas_operator_membership_id' => $membership->id,
+                'assignment_role' => 'remote_pilot',
+                'status' => 'active',
+                'approved_from' => now()->toDateString(),
+                'approved_at' => now(),
+                'created_by' => $pilotUser->id,
+            ],
+        );
+    }
+
     return $mission;
 }
 
@@ -299,7 +326,7 @@ it('returns green mission readiness when all release controls are satisfied', fu
     expect($summary['status'])->toBe('green')
         ->and($summary['blocking_count'])->toBe(0)
         ->and($summary['warning_count'])->toBe(0)
-        ->and($summary['controls'])->toHaveCount(8);
+        ->and($summary['controls'])->toHaveCount(9);
 });
 
 it('propagates red and amber aircraft readiness into mission compliance', function () {
@@ -398,7 +425,7 @@ it('records immutable release audit evidence with the compliance snapshot', func
         ->and($audit->new_values['release_evidence']['compliance_status'])->toBe('green')
         ->and($audit->new_values['release_evidence']['blocking_count'])->toBe(0)
         ->and($audit->new_values['release_evidence']['aircraft_readiness_status'])->toBe('green')
-        ->and($audit->new_values['release_evidence']['control_snapshot'])->toHaveCount(8)
+        ->and($audit->new_values['release_evidence']['control_snapshot'])->toHaveCount(9)
         ->and($audit->new_values['release_evidence']['aeronautical_briefing_id'])->toBe(\App\Domains\Uas\AeronauticalInformation\Domain\Models\MissionAeronauticalBriefing::where('mission_id', $mission->id)->value('id'))
         ->and($audit->new_values['release_evidence']['aeronautical_briefing_revision'])->toBe(1);
 });
@@ -448,4 +475,49 @@ it('renders mission detail release readiness for authenticated users', function 
             ->where('missionCompliance.status', 'green')
             ->where('mission.compliance.status', 'green')
         );
+});
+
+
+it('blocks mission readiness immediately when pilot operator approval is suspended or ended', function () {
+    $user = missionComplianceUser(['missions.view', 'missions.update']);
+    $mission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $mission);
+
+    $assignment = UasOperatorPilot::query()
+        ->where('uas_operator_id', $mission->uas_operator_id)
+        ->where('uas_pilot_id', $mission->uas_pilot_id)
+        ->firstOrFail();
+
+    $assignment->forceFill(['status' => UasOperatorPilot::STATUS_SUSPENDED, 'suspended_at' => now()])->save();
+
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    $control = collect($summary['controls'])->firstWhere('key', 'pilot_operator_approval');
+
+    expect($summary['status'])->toBe('red')
+        ->and($control['blocking'])->toBeTrue()
+        ->and($control['status'])->toBe('red');
+
+    $assignment->forceFill(['status' => UasOperatorPilot::STATUS_ENDED, 'ended_at' => now()])->save();
+
+    expect(fn () => app(\App\Domains\Uas\Missions\Application\Actions\ReleaseMission::class)->execute($mission->fresh(), $user))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+});
+
+it('blocks mission readiness when the pilots underlying operator membership is suspended', function () {
+    $user = missionComplianceUser(['missions.view', 'missions.update']);
+    $mission = missionComplianceMission();
+    missionComplianceAuthorizeUserForMission($user, $mission);
+
+    $assignment = UasOperatorPilot::query()
+        ->where('uas_operator_id', $mission->uas_operator_id)
+        ->where('uas_pilot_id', $mission->uas_pilot_id)
+        ->firstOrFail();
+
+    $assignment->membership->forceFill(['status' => UasOperatorMembership::STATUS_SUSPENDED])->save();
+
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    $control = collect($summary['controls'])->firstWhere('key', 'pilot_operator_approval');
+
+    expect($summary['status'])->toBe('red')
+        ->and($control['blocking'])->toBeTrue();
 });

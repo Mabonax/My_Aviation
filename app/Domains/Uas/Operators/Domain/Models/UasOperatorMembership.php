@@ -104,6 +104,13 @@ class UasOperatorMembership extends Model
         ];
     }
 
+    public static function selfRequestableRoles(): array
+    {
+        return [
+            self::ROLE_REMOTE_PILOT,
+        ];
+    }
+
     public static function managerRoles(): array
     {
         return [

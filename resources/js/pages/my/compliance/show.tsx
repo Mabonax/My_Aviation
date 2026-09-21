@@ -37,7 +37,8 @@ export default function Show({ workspace }: { workspace: MyPilotWorkspace }) {
                 </div>
 
                 <section className="rounded-lg border bg-card p-4 text-card-foreground shadow-xs">
-                    <h2 className="text-sm font-semibold uppercase tracking-normal text-muted-foreground">Readiness Notes</h2>
+                    <h2 className="text-sm font-semibold uppercase tracking-normal text-muted-foreground">Verified readiness</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">Medical and radiotelephony states shown here are operational verification states. They cannot be changed from pilot self-service.</p>
                     <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
                         <p>Medical status: {compliance.medical_status.replace('_', ' ')}</p>
                         <p>Radiotelephony: {compliance.radiotelephony_qualification.replace('_', ' ')}</p>

@@ -6,6 +6,8 @@ use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorPilot;
+use Illuminate\Support\Facades\Gate;
 use App\Models\User;
 
 class AssignPilotToOperator
@@ -14,6 +16,12 @@ class AssignPilotToOperator
 
     public function execute(UasOperator $operator, UasPilot $pilot, User $actor, string $role = 'remote_pilot', string $status = 'active', ?string $notes = null, ?string $ipAddress = null, ?string $userAgent = null): void
     {
+        Gate::forUser($actor)->authorize('manageMemberships', $operator);
+
+        if ($status === UasOperatorPilot::STATUS_ACTIVE) {
+            throw new \InvalidArgumentException('Active pilot operational approval must use ApprovePilotForOperator so membership and approval evidence are enforced.');
+        }
+
         $operator->pilots()->syncWithoutDetaching([
             $pilot->id => [
                 'assignment_role' => $role,

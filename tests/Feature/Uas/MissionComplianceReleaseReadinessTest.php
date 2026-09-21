@@ -15,6 +15,7 @@ use App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Operators\Domain\Models\UasOperator;
 use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorPilot;
 use App\Domains\Uas\Pilots\Domain\Models\PilotCertificate;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use App\Domains\Uas\Records\Domain\Models\UasAuditEntry;
@@ -240,6 +241,37 @@ function missionComplianceAuthorizeUserForMission(User $user, UasMission $missio
     }
 
     missionComplianceMember($user, $operator, $role);
+
+    if ($mission->uas_pilot_id) {
+        $pilot = $mission->pilot;
+        $pilotUser = $pilot?->user_id ? User::query()->find($pilot->user_id) : null;
+
+        if (! $pilotUser && $pilot) {
+            $pilotUser = User::factory()->create();
+            $pilot->forceFill(['user_id' => $pilotUser->id])->save();
+        }
+
+        if ($pilot && $pilotUser) {
+            $pilotMembership = UasOperatorMembership::query()->firstOrCreate(
+                ['uas_operator_id' => $operator->id, 'user_id' => $pilotUser->id],
+                ['membership_role' => 'remote_pilot', 'status' => 'active', 'source' => 'admin', 'activated_at' => now()],
+            );
+            $pilotMembership->forceFill(['status' => 'active', 'activated_at' => $pilotMembership->activated_at ?? now()])->save();
+
+            UasOperatorPilot::query()->updateOrCreate(
+                ['uas_operator_id' => $operator->id, 'uas_pilot_id' => $pilot->id],
+                [
+                    'uas_operator_membership_id' => $pilotMembership->id,
+                    'assignment_role' => 'remote_pilot',
+                    'status' => 'active',
+                    'approved_from' => now()->toDateString(),
+                    'approved_at' => now(),
+                    'approved_by' => $user->id,
+                    'created_by' => $user->id,
+                ],
+            );
+        }
+    }
 
     if ($mission->uas_aircraft_id) {
         $operator->aircraft()->syncWithoutDetaching([

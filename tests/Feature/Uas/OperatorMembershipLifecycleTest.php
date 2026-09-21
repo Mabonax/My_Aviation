@@ -117,7 +117,7 @@ it('enforces one open membership per operator and user at the database boundary'
 it('releases the database uniqueness key when a membership is ended', function () {
     $operator=tr005Operator('TR005 Rejoin');
     $member=User::factory()->create();
-    $manager=tr005Manager();
+    $manager=User::factory()->create();
     $service=app(OperatorMembershipLifecycle::class);
 
     $membership=$service->request($operator,$member,UasOperatorMembership::ROLE_REMOTE_PILOT);

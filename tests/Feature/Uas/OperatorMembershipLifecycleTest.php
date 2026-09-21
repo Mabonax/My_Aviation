@@ -130,3 +130,35 @@ it('releases the database uniqueness key when a membership is ended', function (
     expect($replacement->status)->toBe(UasOperatorMembership::STATUS_PENDING)
         ->and($replacement->open_membership_key)->toBe($operator->id.':'.$member->id);
 });
+
+
+it('discovers an active operator by UASOC number without exposing a directory', function () {
+    $operator = tr005Operator('Discoverable Operator');
+    $operator->update(['uasoc_number' => 'UASOC-DISCOVER-001']);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson('/api/v1/operators/discover?code=UASOC-DISCOVER-001')
+        ->assertOk()
+        ->assertJsonPath('data.id', $operator->id)
+        ->assertJsonPath('data.name', 'Discoverable Operator')
+        ->assertJsonPath('data.uasoc_number', 'UASOC-DISCOVER-001')
+        ->assertJsonPath('data.membership', null);
+
+    $this->actingAs($user)
+        ->getJson('/api/v1/operators/discover?code=DOES-NOT-EXIST')
+        ->assertNotFound();
+});
+
+it('returns an existing open membership when discovering an operator', function () {
+    $operator = tr005Operator('Existing Membership Operator');
+    $operator->update(['uasoc_number' => 'UASOC-MEMBER-001']);
+    $user = User::factory()->create();
+    app(OperatorMembershipLifecycle::class)->request($operator, $user, 'remote_pilot', 'Please add me.');
+
+    $this->actingAs($user)
+        ->getJson('/api/v1/operators/discover?code=UASOC-MEMBER-001')
+        ->assertOk()
+        ->assertJsonPath('data.membership.status', 'pending')
+        ->assertJsonPath('data.membership.source', 'join_request');
+});

@@ -30,6 +30,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('me/operators', [CurrentUserController::class, 'operators'])->name('me.operators');
         Route::get('me/operator-context', [CurrentUserController::class, 'operatorContext'])->name('me.operator-context');
         Route::get('me/operator-memberships', [OperatorMembershipLifecycleController::class, 'index'])->name('me.operator-memberships');
+        Route::get('operators/discover', [OperatorMembershipLifecycleController::class, 'discover'])->name('operators.discover');
         Route::post('operators/{operator}/membership-invitations', [OperatorMembershipLifecycleController::class, 'invite'])->name('operators.memberships.invite');
         Route::post('operators/{operator}/join-requests', [OperatorMembershipLifecycleController::class, 'requestJoin'])->name('operators.memberships.request');
         Route::post('operator-memberships/{membership}/transition', [OperatorMembershipLifecycleController::class, 'transition'])->name('operator-memberships.transition');

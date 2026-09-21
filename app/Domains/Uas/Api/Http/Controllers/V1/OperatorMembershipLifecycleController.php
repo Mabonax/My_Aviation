@@ -20,6 +20,42 @@ class OperatorMembershipLifecycleController extends Controller
         return ApiResponse::success($items);
     }
 
+    public function discover(Request $request): JsonResponse
+    {
+        $data = $request->validate(['code' => ['required', 'string', 'max:100']]);
+        $code = trim($data['code']);
+
+        $operator = UasOperator::query()
+            ->where('status', 'active')
+            ->where(function ($query) use ($code) {
+                $query->where('uasoc_number', $code)
+                    ->orWhere('registration_number', $code);
+            })
+            ->first();
+
+        if (! $operator) {
+            return ApiResponse::error('Operator not found.', 404);
+        }
+
+        $existing = $request->user()->operatorMemberships()
+            ->where('uas_operator_id', $operator->id)
+            ->whereIn('status', [
+                UasOperatorMembership::STATUS_PENDING,
+                UasOperatorMembership::STATUS_ACTIVE,
+                UasOperatorMembership::STATUS_SUSPENDED,
+            ])
+            ->latest()
+            ->first();
+
+        return ApiResponse::success([
+            'id' => $operator->id,
+            'name' => $operator->trading_name ?: $operator->legal_entity,
+            'uasoc_number' => $operator->uasoc_number,
+            'registration_number' => $operator->registration_number,
+            'membership' => $existing ? $this->present($existing->loadMissing('operator')) : null,
+        ]);
+    }
+
     public function invite(Request $request, UasOperator $operator, OperatorMembershipLifecycle $lifecycle, CurrentOperatorContext $context): JsonResponse
     {
         abort_unless($context->canManageOperator($request->user(),$operator),403);

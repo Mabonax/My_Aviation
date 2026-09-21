@@ -263,8 +263,6 @@ it('keeps pilot self-service available after operator membership scoping', funct
             'email' => 'self.service@example.com',
             'sacaa_certificate_number' => 'RPC-TEN-SELF',
             'rpc_category' => 'multi_rotor',
-            'medical_status' => 'unverified',
-            'radiotelephony_qualification' => 'restricted',
         ])
         ->assertRedirect(route('my.pilot.show'));
 });

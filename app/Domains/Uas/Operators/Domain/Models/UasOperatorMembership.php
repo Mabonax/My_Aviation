@@ -30,6 +30,7 @@ class UasOperatorMembership extends Model
         'user_id',
         'membership_role',
         'status',
+        'open_membership_key',
         'source',
         'message',
         'joined_at',

@@ -89,3 +89,44 @@ it('prevents a self join request from claiming an elevated operator role', funct
     expect(UasOperatorMembership::query()->where('uas_operator_id',$operator->id)->where('user_id',$pilot->id)->exists())
         ->toBeFalse();
 });
+
+
+it('enforces one open membership per operator and user at the database boundary', function () {
+    $operator=tr005Operator('TR005 Unique Boundary');
+    $member=User::factory()->create();
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id'=>$operator->id,
+        'user_id'=>$member->id,
+        'membership_role'=>UasOperatorMembership::ROLE_REMOTE_PILOT,
+        'status'=>UasOperatorMembership::STATUS_PENDING,
+        'open_membership_key'=>$operator->id.':'.$member->id,
+        'source'=>UasOperatorMembership::SOURCE_JOIN_REQUEST,
+    ]);
+
+    expect(fn()=>UasOperatorMembership::query()->create([
+        'uas_operator_id'=>$operator->id,
+        'user_id'=>$member->id,
+        'membership_role'=>UasOperatorMembership::ROLE_REMOTE_PILOT,
+        'status'=>UasOperatorMembership::STATUS_PENDING,
+        'open_membership_key'=>$operator->id.':'.$member->id,
+        'source'=>UasOperatorMembership::SOURCE_INVITATION,
+    ]))->toThrow(\Illuminate\Database\QueryException::class);
+});
+
+it('releases the database uniqueness key when a membership is ended', function () {
+    $operator=tr005Operator('TR005 Rejoin');
+    $member=User::factory()->create();
+    $manager=User::factory()->create();
+    $service=app(OperatorMembershipLifecycle::class);
+
+    $membership=$service->request($operator,$member,UasOperatorMembership::ROLE_REMOTE_PILOT);
+    $service->approveRequest($membership,$manager);
+    $ended=$service->end($membership->refresh(),$manager);
+
+    expect($ended->open_membership_key)->toBeNull();
+
+    $replacement=$service->request($operator,$member,UasOperatorMembership::ROLE_REMOTE_PILOT);
+    expect($replacement->status)->toBe(UasOperatorMembership::STATUS_PENDING)
+        ->and($replacement->open_membership_key)->toBe($operator->id.':'.$member->id);
+});

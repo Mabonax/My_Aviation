@@ -5,6 +5,7 @@ namespace App\Domains\Uas\Missions\Application\Actions;
 use App\Domains\Uas\AeronauticalInformation\Application\Actions\AuditAeronauticalEvent;
 use App\Domains\Uas\AeronauticalInformation\Domain\Contracts\AeronauticalRepositoryInterface;
 use App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary;
+use App\Domains\Uas\Operators\Application\Services\PilotOperatorApproval;
 use App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use App\Domains\Uas\Missions\Domain\Services\MissionLifecycle;
@@ -21,6 +22,7 @@ class ReleaseMission
         private readonly MissionComplianceSummary $compliance,
         private readonly MissionLifecycle $lifecycle,
         private readonly RecordAuditEntry $recordAuditEntry,
+        private readonly PilotOperatorApproval $pilotApproval,
     ) {}
 
     public function execute(UasMission $mission, User $actor, ?string $ipAddress = null, ?string $userAgent = null): UasMission
@@ -31,6 +33,14 @@ class ReleaseMission
                 app(AeronauticalRepositoryInterface::class)->lockDataset();
                 $mission = UasMission::query()->lockForUpdate()->findOrFail($mission->id);
                 Gate::forUser($actor)->authorize('update', $mission);
+
+                if ($mission->uas_operator_id && $mission->uas_pilot_id
+                    && ! $this->pilotApproval->isApproved((int) $mission->uas_operator_id, (int) $mission->uas_pilot_id)) {
+                    throw ValidationException::withMessages([
+                        'uas_pilot_id' => 'Mission release is blocked because the assigned pilot is no longer approved to operate for this operator.',
+                    ]);
+                }
+
                 $previous = $mission->getAttributes();
                 $summary = $this->compliance->execute($mission);
 

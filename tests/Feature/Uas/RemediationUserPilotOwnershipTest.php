@@ -32,8 +32,6 @@ function remediationPilotPayload(array $overrides = []): array
         'sacaa_certificate_number' => 'RPC-REM-001',
         'rpc_category' => 'multi_rotor',
         'ratings' => ['visual_line_of_sight'],
-        'medical_status' => 'unverified',
-        'radiotelephony_qualification' => 'restricted',
         'language_proficiency' => 'English level 6',
         'notes' => 'Self-service remediation pilot profile.',
     ], $overrides);
@@ -176,6 +174,8 @@ it('keeps admin pilot management working through admin routes', function () {
                 'email' => 'admin.created@example.com',
                 'sacaa_certificate_number' => 'RPC-ADMIN-001',
             ]),
+            'medical_status' => 'unverified',
+            'radiotelephony_qualification' => 'restricted',
             'user_id' => null,
             'employee_number' => 'ADMIN-PILOT-001',
             'profile_status' => 'draft',
@@ -253,4 +253,41 @@ it('prevents administrative linking when the target user already owns another pi
         ->assertInvalid(['user_id']);
 
     expect($unownedPilot->refresh()->user_id)->toBeNull();
+});
+
+
+it('does not allow pilot self service to declare verified medical or radiotelephony state', function () {
+    $user = remediationPilotRoleUser();
+
+    $this->actingAs($user)
+        ->post('/my/pilot', remediationPilotPayload([
+            'medical_status' => 'valid',
+            'radiotelephony_qualification' => 'general',
+        ]))
+        ->assertInvalid(['medical_status', 'radiotelephony_qualification']);
+
+    expect(UasPilot::query()->where('user_id', $user->id)->exists())->toBeFalse();
+});
+
+it('preserves administrator verified compliance state when a pilot edits personal details', function () {
+    $user = remediationPilotRoleUser();
+    $pilot = remediationLegacyPilot([
+        'user_id' => $user->id,
+        'email' => 'verified.self.service@example.com',
+        'sacaa_certificate_number' => 'RPC-VERIFIED-SELF',
+        'medical_status' => 'valid',
+        'radiotelephony_qualification' => 'general',
+    ]);
+
+    $this->actingAs($user)
+        ->put('/my/pilot', remediationPilotPayload([
+            'first_name' => 'Updated',
+            'email' => 'verified.self.service@example.com',
+            'sacaa_certificate_number' => 'RPC-VERIFIED-SELF',
+        ]))
+        ->assertRedirect(route('my.pilot.show'));
+
+    expect($pilot->refresh()->first_name)->toBe('Updated')
+        ->and($pilot->medical_status->value)->toBe('valid')
+        ->and($pilot->radiotelephony_qualification->value)->toBe('general');
 });

@@ -2,8 +2,6 @@
 
 namespace App\Domains\Uas\Pilots\Http\Requests;
 
-use App\Domains\Uas\Pilots\Domain\Enums\PilotMedicalStatus;
-use App\Domains\Uas\Pilots\Domain\Enums\RadiotelephonyQualification;
 use App\Domains\Uas\Pilots\Domain\Enums\RpcCategory;
 use App\Domains\Uas\Pilots\Domain\Models\UasPilot;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,8 +28,8 @@ class StoreOwnPilotProfileRequest extends FormRequest
             'rpc_category' => ['required', Rule::enum(RpcCategory::class)],
             'ratings' => ['nullable', 'array'],
             'ratings.*' => ['string', 'max:120'],
-            'medical_status' => ['required', Rule::enum(PilotMedicalStatus::class)],
-            'radiotelephony_qualification' => ['required', Rule::enum(RadiotelephonyQualification::class)],
+            'medical_status' => ['prohibited'],
+            'radiotelephony_qualification' => ['prohibited'],
             'language_proficiency' => ['nullable', 'string', 'max:120'],
             'training_history' => ['nullable', 'array'],
             'examiner_records' => ['nullable', 'array'],

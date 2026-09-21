@@ -33,8 +33,6 @@ export default function MyPilotForm({ options, pilot }: MyPilotFormProps) {
         sacaa_certificate_number: pilot?.sacaa_certificate_number ?? '',
         rpc_category: pilot?.rpc_category ?? 'unknown',
         ratings: pilot?.ratings?.join(', ') ?? '',
-        medical_status: pilot?.medical_status ?? 'unverified',
-        radiotelephony_qualification: pilot?.radiotelephony_qualification ?? 'unverified',
         language_proficiency: pilot?.language_proficiency ?? '',
         notes: pilot?.notes ?? '',
     });
@@ -93,12 +91,12 @@ export default function MyPilotForm({ options, pilot }: MyPilotFormProps) {
                 <Field label="RPC category" error={errors.rpc_category}>
                     <OptionSelect value={data.rpc_category} options={options.rpcCategories} onChange={(value) => setData('rpc_category', value)} />
                 </Field>
-                <Field label="Medical status" error={errors.medical_status}>
-                    <OptionSelect value={data.medical_status} options={options.medicalStatuses} onChange={(value) => setData('medical_status', value)} />
-                </Field>
-                <Field label="Radiotelephony" error={errors.radiotelephony_qualification}>
-                    <OptionSelect value={data.radiotelephony_qualification} options={options.radiotelephonyQualifications} onChange={(value) => setData('radiotelephony_qualification', value)} />
-                </Field>
+                {pilot && (
+                    <>
+                        <ReadOnlyComplianceState label="Medical verification" value={pilot.medical_status} />
+                        <ReadOnlyComplianceState label="Radiotelephony verification" value={pilot.radiotelephony_qualification} />
+                    </>
+                )}
                 <Field label="Language proficiency" error={errors.language_proficiency}>
                     <Input value={data.language_proficiency} onChange={(event) => setData('language_proficiency', event.target.value)} />
                 </Field>
@@ -151,6 +149,17 @@ function Field({ label, error, className, children }: { label: string; error?: s
             <Label>{label}</Label>
             <div className="mt-2">{children}</div>
             <InputError message={error} className="mt-2" />
+        </div>
+    );
+}
+
+
+function ReadOnlyComplianceState({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <Label>{label}</Label>
+            <div className="mt-2 rounded-md border bg-muted/40 px-3 py-2 text-sm capitalize">{value.replaceAll('_', ' ')}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Verification state is controlled by authorised compliance administration, not pilot self-service.</p>
         </div>
     );
 }

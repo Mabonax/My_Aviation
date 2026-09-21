@@ -19,6 +19,8 @@ class UpdateOwnPilotProfile
                 'user_id' => $actor->id,
                 'employee_number' => $pilot->employee_number,
                 'profile_status' => $pilot->profile_status->value,
+                'medical_status' => $pilot->medical_status->value,
+                'radiotelephony_qualification' => $pilot->radiotelephony_qualification->value,
             ]),
             $actor,
             $ipAddress,

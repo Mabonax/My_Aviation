@@ -33,6 +33,8 @@ use App\Domains\Uas\Operators\Http\Controllers\ApplicationRenewalPackController;
 use App\Domains\Uas\Pilots\Http\Controllers\PilotProfileController;
 use App\Domains\Uas\Pilots\Http\Controllers\MyComplianceController;
 use App\Domains\Uas\Pilots\Http\Controllers\MyPilotProfileController;
+use App\Domains\Uas\Pilots\Application\Queries\CurrentPilotProfile;
+use App\Domains\Uas\Pilots\Application\Queries\MyPilotWorkspace;
 use App\Domains\Uas\Regulations\Http\Controllers\RegulatoryExternalIntegrationController;
 use App\Domains\Uas\Regulations\Http\Controllers\RegulatoryFeeController;
 use App\Domains\Uas\Regulations\Http\Controllers\RegulatoryFormController;
@@ -56,9 +58,22 @@ Route::middleware(['auth'])->group(function () {
     Route::get('missions/{mission}/briefing', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'show'])->name('missions.briefing.show');
     Route::post('missions/{mission}/briefing', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'store'])->name('missions.briefing.store');
     Route::post('missions/{mission}/briefing/{briefing}/acknowledge', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'acknowledge'])->name('missions.briefing.acknowledge');
-    Route::get('dashboard', function (ComplianceDashboardSummary $summary) {
+    Route::get('dashboard', function (
+        ComplianceDashboardSummary $summary,
+        CurrentPilotProfile $currentPilot,
+        MyPilotWorkspace $pilotWorkspace
+    ) {
+        $user = request()->user();
+        $pilot = $user->hasUasPermission('pilots.self-service')
+            ? $currentPilot->resolve($user)
+            : null;
+
+        $isPilotPersona = $user->hasUasPermission('pilots.self-service') && ! $user->isSuperAdmin();
+
         return Inertia::render('dashboard', [
-            'summary' => $summary->execute(),
+            'summary' => $isPilotPersona ? null : $summary->execute(),
+            'pilotWorkspace' => $pilot ? $pilotWorkspace->execute($pilot) : null,
+            'pilotOnboardingRequired' => $isPilotPersona && $pilot === null,
         ]);
     })->name('dashboard');
 

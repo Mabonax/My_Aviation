@@ -68,10 +68,12 @@ Route::middleware(['auth'])->group(function () {
             ? $currentPilot->resolve($user)
             : null;
 
+        $isPilotPersona = $user->hasUasPermission('pilots.self-service') && ! $user->isSuperAdmin();
+
         return Inertia::render('dashboard', [
-            'summary' => $summary->execute(),
+            'summary' => $isPilotPersona ? null : $summary->execute(),
             'pilotWorkspace' => $pilot ? $pilotWorkspace->execute($pilot) : null,
-            'pilotOnboardingRequired' => $user->hasUasPermission('pilots.self-service') && $pilot === null,
+            'pilotOnboardingRequired' => $isPilotPersona && $pilot === null,
         ]);
     })->name('dashboard');
 

@@ -260,7 +260,7 @@ it('does not allow pilot self service to declare verified medical or radioteleph
     $this->actingAs($user)
         ->post('/my/pilot', remediationPilotPayload([
             'medical_status' => 'valid',
-            'radiotelephony_qualification' => 'unrestricted',
+            'radiotelephony_qualification' => 'general',
         ]))
         ->assertInvalid(['medical_status', 'radiotelephony_qualification']);
 
@@ -287,5 +287,5 @@ it('preserves administrator verified compliance state when a pilot edits persona
 
     expect($pilot->refresh()->first_name)->toBe('Updated')
         ->and($pilot->medical_status->value)->toBe('valid')
-        ->and($pilot->radiotelephony_qualification->value)->toBe('unrestricted');
+        ->and($pilot->radiotelephony_qualification->value)->toBe('general');
 });

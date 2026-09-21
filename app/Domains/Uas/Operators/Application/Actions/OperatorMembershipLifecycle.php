@@ -21,6 +21,12 @@ class OperatorMembershipLifecycle
 
     public function request(UasOperator $operator, User $member, string $role, ?string $message = null): UasOperatorMembership
     {
+        if (! in_array($role, UasOperatorMembership::selfRequestableRoles(), true)) {
+            throw ValidationException::withMessages([
+                'membership_role' => 'This operator role can only be assigned by an authorised operator manager.',
+            ]);
+        }
+
         return $this->createPending($operator, $member, $role, UasOperatorMembership::SOURCE_JOIN_REQUEST, $member, $message, 'membership.requested');
     }
 

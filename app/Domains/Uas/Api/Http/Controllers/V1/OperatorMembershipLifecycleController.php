@@ -30,7 +30,7 @@ class OperatorMembershipLifecycleController extends Controller
 
     public function requestJoin(Request $request, UasOperator $operator, OperatorMembershipLifecycle $lifecycle): JsonResponse
     {
-        $data=$request->validate(['membership_role'=>['required',Rule::in(array_keys(UasOperatorMembership::roles()))],'message'=>['nullable','string','max:1000']]);
+        $data=$request->validate(['membership_role'=>['required',Rule::in(UasOperatorMembership::selfRequestableRoles())],'message'=>['nullable','string','max:1000']]);
         $membership=$lifecycle->request($operator,$request->user(),$data['membership_role'],$data['message']??null);
         return ApiResponse::success($this->present($membership),201);
     }

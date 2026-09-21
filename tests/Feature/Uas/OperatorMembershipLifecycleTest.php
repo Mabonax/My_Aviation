@@ -76,3 +76,16 @@ it('prevents duplicate open memberships', function () {
     $service->request($operator,$pilot,UasOperatorMembership::ROLE_REMOTE_PILOT);
     expect(fn()=>$service->request($operator,$pilot,UasOperatorMembership::ROLE_REMOTE_PILOT))->toThrow(ValidationException::class);
 });
+
+
+it('prevents a self join request from claiming an elevated operator role', function () {
+    $operator=tr005Operator('TR005 Escalation');
+    $pilot=User::factory()->create();
+    $service=app(OperatorMembershipLifecycle::class);
+
+    expect(fn()=>$service->request($operator,$pilot,UasOperatorMembership::ROLE_ADMINISTRATOR))
+        ->toThrow(ValidationException::class);
+
+    expect(UasOperatorMembership::query()->where('uas_operator_id',$operator->id)->where('user_id',$pilot->id)->exists())
+        ->toBeFalse();
+});

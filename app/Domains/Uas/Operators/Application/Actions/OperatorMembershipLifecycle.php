@@ -7,6 +7,7 @@ use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
 use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -83,11 +84,18 @@ class OperatorMembershipLifecycle
         if ($exists) throw ValidationException::withMessages(['membership' => 'An open or active membership already exists for this operator.']);
 
         return DB::transaction(function () use ($operator,$member,$role,$source,$actor,$message,$event) {
-            $membership=UasOperatorMembership::query()->create([
+            try {
+                $membership=UasOperatorMembership::query()->create([
                 'uas_operator_id'=>$operator->id,'user_id'=>$member->id,'membership_role'=>$role,
-                'status'=>UasOperatorMembership::STATUS_PENDING,'source'=>$source,'message'=>$message,
+                'status'=>UasOperatorMembership::STATUS_PENDING,'open_membership_key'=>$operator->id.':'.$member->id,'source'=>$source,'message'=>$message,
                 'invited_at'=>$source===UasOperatorMembership::SOURCE_INVITATION ? now() : null,'created_by'=>$actor->id,
-            ]);
+                ]);
+            } catch (QueryException $exception) {
+                if (in_array($exception->getCode(), ['23000', '23505'], true)) {
+                    throw ValidationException::withMessages(['membership' => 'An open or active membership already exists for this operator.']);
+                }
+                throw $exception;
+            }
             $this->record($membership,$actor,$event,null,$membership->getAttributes());
             return $membership;
         });
@@ -99,6 +107,9 @@ class OperatorMembershipLifecycle
             $membership=UasOperatorMembership::query()->lockForUpdate()->findOrFail($membership->id);
             $previous=$membership->getAttributes();
             $updates=['status'=>$status,'responded_at'=>now(),'responded_by'=>$actor->id];
+            $updates['open_membership_key'] = in_array($status, [UasOperatorMembership::STATUS_PENDING, UasOperatorMembership::STATUS_ACTIVE, UasOperatorMembership::STATUS_SUSPENDED], true)
+                ? $membership->uas_operator_id.':'.$membership->user_id
+                : null;
             if ($status===UasOperatorMembership::STATUS_ACTIVE) {
                 $updates['joined_at']=$membership->joined_at ?? now(); $updates['activated_at']=now(); $updates['left_at']=null;
             }

@@ -32,6 +32,8 @@ class CreateOwnPilotProfile
                 'user_id' => $actor->id,
                 'employee_number' => null,
                 'profile_status' => 'draft',
+                'medical_status' => 'unverified',
+                'radiotelephony_qualification' => 'unverified',
             ]),
             $actor,
             $ipAddress,

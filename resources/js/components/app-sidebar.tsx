@@ -1,11 +1,9 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { AlertTriangle, BatteryCharging, Bell, BookOpen, Building2, ClipboardCheck, ExternalLink, FileArchive, FileText, Folder, GraduationCap, LayoutGrid, Map, Network, Plane, ReceiptText, Scale, ShieldCheck, UserCircle, UserRound } from 'lucide-react';
-import AppLogo from './app-logo';
+import { AlertTriangle, BatteryCharging, Bell, Building2, ClipboardCheck, ExternalLink, FileArchive, FileText, GraduationCap, LayoutGrid, Map, Network, Plane, ReceiptText, Scale, ShieldCheck, UserCircle, UserRound } from 'lucide-react';
 import { OperatorWorkspaceSwitcher } from './operator-workspace-switcher';
 
 const adminNavItems: NavItem[] = [
@@ -107,19 +105,6 @@ const adminNavItems: NavItem[] = [
     },
 ];
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        url: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        url: 'https://laravel.com/docs/starter-kits',
-        icon: BookOpen,
-    },
-];
-
 type UiCapabilities = {
     persona: 'platform_admin' | 'pilot' | 'operator_user' | 'user';
     pilot_self_service: boolean;
@@ -141,27 +126,31 @@ export function AppSidebar() {
     ];
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar collapsible="icon" variant="inset" className="[&_[data-sidebar=sidebar]]:border-r-0 [&_[data-sidebar=sidebar]]:bg-[#082942] [&_[data-sidebar=sidebar]]:text-white">
+            <SidebarHeader className="border-b border-white/10 bg-[#082942] px-5 py-5">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton size="lg" asChild className="h-auto p-0 hover:bg-transparent">
                             <Link href="/dashboard" prefetch>
-                                <AppLogo />
+                                <img src="/yaw logo versions/SVG/logo horizontal on black bg.svg" alt="YAW" className="h-12 w-auto max-w-[175px] object-contain object-left" />
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                <p className="mt-1 pl-1 text-[8px] font-semibold uppercase tracking-[0.23em] text-slate-300 group-data-[collapsible=icon]:hidden">South African unmanned aviation<br/>to a higher standard</p>
             </SidebarHeader>
 
             <OperatorWorkspaceSwitcher />
 
-            <SidebarContent>
+            <SidebarContent className="bg-[#082942] px-2 pt-2 [&_a]:text-slate-100 [&_button]:text-slate-100">
                 <NavMain items={items} />
+                <div className="pointer-events-none mt-auto hidden min-h-52 flex-col justify-end overflow-hidden rounded-xl bg-[linear-gradient(to_top,rgba(4,26,43,.15),rgba(4,26,43,.8)),url('/yaw-dashboard-alpine.svg')] bg-cover bg-center p-5 md:flex group-data-[collapsible=icon]:hidden">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-white">Safe skies</p>
+                    <p className="mt-1 text-[12px] font-semibold uppercase tracking-[0.28em] text-white">Enable more</p>
+                </div>
             </SidebarContent>
 
-            <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
+            <SidebarFooter className="border-t border-white/10 bg-[#082942] text-white [&_button]:text-white">
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

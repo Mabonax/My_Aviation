@@ -10,7 +10,7 @@ function tr005Operator(string $name): UasOperator {
     return UasOperator::query()->create([
         'legal_entity' => $name,
         'trading_name' => $name,
-        'operator_code' => strtoupper(substr(md5($name), 0, 8)),
+        'uasoc_number' => strtoupper(substr(md5($name), 0, 8)),
         'status' => 'active',
         'accountable_manager' => 'TR-005 Accountable Manager',
         'responsible_person_flight_operations' => 'TR-005 Flight Operations',

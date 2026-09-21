@@ -38,7 +38,7 @@ export default function Dashboard({
     pilotWorkspace,
     pilotOnboardingRequired,
 }: {
-    summary: DashboardSummary;
+    summary: DashboardSummary | null;
     pilotWorkspace: MyPilotWorkspace | null;
     pilotOnboardingRequired: boolean;
 }) {
@@ -77,11 +77,12 @@ export default function Dashboard({
         );
     }
 
+    const platformSummary = summary!;
     const phaseItems = [
-        { title: 'Pilot profiles', value: summary.pilots.toString(), status: 'Implemented', icon: UserRound },
-        { title: 'Aircraft records', value: summary.aircraft.toString(), status: 'Implemented', icon: Plane },
-        { title: 'Expiring in 30 days', value: summary.certificates_expiring_30_days.toString(), status: summary.certificates_expiring_30_days > 0 ? 'Attention' : 'Valid', icon: AlertTriangle },
-        { title: 'Open findings', value: summary.open_findings.toString(), status: summary.open_findings > 0 ? 'Attention' : 'Valid', icon: FileWarning },
+        { title: 'Pilot profiles', value: platformSummary.pilots.toString(), status: 'Implemented', icon: UserRound },
+        { title: 'Aircraft records', value: platformSummary.aircraft.toString(), status: 'Implemented', icon: Plane },
+        { title: 'Expiring in 30 days', value: platformSummary.certificates_expiring_30_days.toString(), status: platformSummary.certificates_expiring_30_days > 0 ? 'Attention' : 'Valid', icon: AlertTriangle },
+        { title: 'Open findings', value: platformSummary.open_findings.toString(), status: platformSummary.open_findings > 0 ? 'Attention' : 'Valid', icon: FileWarning },
     ];
 
     return (

@@ -174,6 +174,8 @@ it('keeps admin pilot management working through admin routes', function () {
                 'email' => 'admin.created@example.com',
                 'sacaa_certificate_number' => 'RPC-ADMIN-001',
             ]),
+            'medical_status' => 'unverified',
+            'radiotelephony_qualification' => 'restricted',
             'user_id' => null,
             'employee_number' => 'ADMIN-PILOT-001',
             'profile_status' => 'draft',
@@ -274,7 +276,7 @@ it('preserves administrator verified compliance state when a pilot edits persona
         'email' => 'verified.self.service@example.com',
         'sacaa_certificate_number' => 'RPC-VERIFIED-SELF',
         'medical_status' => 'valid',
-        'radiotelephony_qualification' => 'unrestricted',
+        'radiotelephony_qualification' => 'general',
     ]);
 
     $this->actingAs($user)

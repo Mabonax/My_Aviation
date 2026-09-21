@@ -449,3 +449,48 @@ it('renders mission detail release readiness for authenticated users', function 
             ->where('mission.compliance.status', 'green')
         );
 });
+
+
+it('blocks mission readiness immediately when pilot operator approval is suspended or ended', function () {
+    $user = missionComplianceUser(['missions.view', 'missions.update']);
+    $mission = missionComplianceMission();
+    missionComplianceAttachOperatorAccess($user, $mission);
+
+    $assignment = UasOperatorPilot::query()
+        ->where('uas_operator_id', $mission->uas_operator_id)
+        ->where('uas_pilot_id', $mission->uas_pilot_id)
+        ->firstOrFail();
+
+    $assignment->forceFill(['status' => UasOperatorPilot::STATUS_SUSPENDED, 'suspended_at' => now()])->save();
+
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    $control = collect($summary['controls'])->firstWhere('key', 'pilot_operator_approval');
+
+    expect($summary['status'])->toBe('red')
+        ->and($control['blocking'])->toBeTrue()
+        ->and($control['status'])->toBe('red');
+
+    $assignment->forceFill(['status' => UasOperatorPilot::STATUS_ENDED, 'ended_at' => now()])->save();
+
+    expect(fn () => app(\App\Domains\Uas\Missions\Application\Actions\ReleaseMission::class)->execute($mission->fresh(), $user))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+});
+
+it('blocks mission readiness when the pilots underlying operator membership is suspended', function () {
+    $user = missionComplianceUser(['missions.view', 'missions.update']);
+    $mission = missionComplianceMission();
+    missionComplianceAttachOperatorAccess($user, $mission);
+
+    $assignment = UasOperatorPilot::query()
+        ->where('uas_operator_id', $mission->uas_operator_id)
+        ->where('uas_pilot_id', $mission->uas_pilot_id)
+        ->firstOrFail();
+
+    $assignment->membership->forceFill(['status' => UasOperatorMembership::STATUS_SUSPENDED])->save();
+
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    $control = collect($summary['controls'])->firstWhere('key', 'pilot_operator_approval');
+
+    expect($summary['status'])->toBe('red')
+        ->and($control['blocking'])->toBeTrue();
+});

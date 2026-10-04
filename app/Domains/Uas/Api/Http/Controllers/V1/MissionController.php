@@ -4,6 +4,7 @@ namespace App\Domains\Uas\Api\Http\Controllers\V1;
 
 use App\Domains\Uas\Api\Application\ApiResponse;
 use App\Domains\Uas\Missions\Application\Actions\PropagatePostFlightRecords;
+use App\Domains\Uas\Missions\Application\Actions\ReleaseMission;
 use App\Domains\Uas\Missions\Application\Queries\ListMissions;
 use App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary;
 use App\Domains\Uas\Missions\Application\Queries\MissionPresenter;
@@ -35,6 +36,18 @@ class MissionController extends Controller
     {
         $this->authorizeInContext($request, $mission, $context);
         return ApiResponse::success(['compliance' => $compliance->execute($mission)]);
+    }
+
+    public function release(Request $request, UasMission $mission, ReleaseMission $action, CurrentOperatorContext $context): JsonResponse
+    {
+        $this->authorizeInContext($request, $mission, $context);
+        Gate::authorize('update', $mission);
+
+        $released = $action->execute($mission, $request->user(), $request->ip(), $request->userAgent());
+
+        return ApiResponse::success([
+            'mission' => MissionPresenter::toArray($released->fresh()),
+        ], 'Mission released for flight.');
     }
 
     public function postFlightPropagation(Request $request, UasMission $mission, PostFlightPropagationSummary $summary, CurrentOperatorContext $context): JsonResponse

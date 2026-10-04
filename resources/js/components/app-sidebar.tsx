@@ -32,6 +32,7 @@ const iconFor = (key: string) => {
         regulations: Scale,
         batteries: BatteryCharging,
         defects: AlertTriangle,
+        gis: Map,
     } as const;
 
     return icons[key as keyof typeof icons] ?? LayoutGrid;
@@ -49,7 +50,11 @@ export function AppSidebar() {
     }));
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar
+            collapsible="icon"
+            variant="inset"
+            className="[--sidebar-background:#07385e] [--sidebar-foreground:#e8f3fb] [--sidebar-accent:#0d5f9b] [--sidebar-accent-foreground:#ffffff] [--sidebar-border:rgba(255,255,255,.12)] [--sidebar-primary:#38bdf8] [--sidebar-primary-foreground:#ffffff]"
+        >
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>

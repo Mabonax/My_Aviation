@@ -20,6 +20,9 @@ class MissionPresenter
                 'label' => str($mission->post_flight_propagation_state ?? 'pending')->replace('_', ' ')->title()->toString(),
                 'propagated_at' => $mission->post_flight_propagated_at?->toISOString(),
             ];
+        $journey = $includeComplianceDetails
+            ? app(MissionJourneySummary::class)->execute($mission, $compliance, $postFlightPropagation)
+            : null;
 
         return [
             'id' => $mission->id,
@@ -65,6 +68,7 @@ class MissionPresenter
             'release_gate_results' => $mission->release_gate_results ?? [],
             'compliance' => $compliance,
             'post_flight_propagation' => $postFlightPropagation,
+            'journey' => $journey,
             'evidence' => app(EvidenceSummary::class)->for($mission),
             'regulatory_source' => $mission->regulatory_source,
             'regulatory_source_version' => $mission->regulatory_source_version,

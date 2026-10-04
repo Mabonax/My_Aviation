@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertCircle, CheckCircle2, CircleAlert, Rocket, SendToBack } from 'lucide-react';
-import { MissionBatteryReport, MissionChecklistReport, MissionComplianceSummary, MissionCrewReport, MissionDefectReport, MissionProfile, MissionTrackReport, PostFlightPropagationSummary, SpatialRuleReview } from './types';
+import { MissionBatteryReport, MissionChecklistReport, MissionComplianceSummary, MissionCrewReport, MissionDefectReport, MissionJourneySummary, MissionProfile, MissionTrackReport, PostFlightPropagationSummary, SpatialRuleReview } from './types';
 
 export default function Show({ mission, missionCompliance, spatialRuleReview, preFlightChecklist, postFlightChecklist, postFlightPropagation, crew, tracks, batteries, defects }: { mission: MissionProfile; missionCompliance: MissionComplianceSummary; spatialRuleReview: SpatialRuleReview; preFlightChecklist: MissionChecklistReport; postFlightChecklist: MissionChecklistReport; postFlightPropagation: PostFlightPropagationSummary; crew: MissionCrewReport; tracks: MissionTrackReport; batteries: MissionBatteryReport; defects: MissionDefectReport }) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -21,6 +21,8 @@ export default function Show({ mission, missionCompliance, spatialRuleReview, pr
             <Head title={mission.mission_number} />
             <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
                 <PageHeader title={mission.mission_number} description={mission.purpose} actions={<div className="flex gap-2"><Button variant="outline" asChild><Link href="/missions">Back</Link></Button><Button variant="outline" asChild><Link href={`/missions/${mission.id}/briefing`}>Briefing</Link></Button><Button disabled={missionCompliance.status === 'red'} onClick={() => router.post(`/missions/${mission.id}/release`)}><Rocket />{missionCompliance.status === 'green' ? 'Release Mission' : missionCompliance.status === 'amber' ? 'Review & Release' : 'Release Blocked'}</Button></div>} />
+
+                <MissionJourney journey={mission.journey} />
 
                 <div className="grid gap-4 xl:grid-cols-2">
                     <Panel title="Mission Release Readiness">
@@ -227,6 +229,44 @@ export default function Show({ mission, missionCompliance, spatialRuleReview, pr
     );
 }
 
+
+
+function MissionJourney({ journey }: { journey: MissionJourneySummary }) {
+    return (
+        <section className="rounded-2xl border bg-card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Mission journey</p>
+                    <h2 className="mt-1 text-xl font-semibold">Planning to post-flight</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{journey.readiness.label} · {journey.readiness.blocking_count} blocking · {journey.readiness.warning_count} warning</p>
+                </div>
+                {journey.next_action?.action_href && (
+                    <Button size="sm" asChild>
+                        <Link href={journey.next_action.action_href}>Next: {journey.next_action.label}<ArrowRight /></Link>
+                    </Button>
+                )}
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {journey.stages.map((stage, index) => (
+                    <div
+                        key={stage.key}
+                        className={`relative rounded-xl border p-4 ${journey.current_stage === stage.key ? 'ring-2 ring-primary/30' : ''}`}
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+                            <StatusBadge value={journey.current_stage === stage.key ? 'current' : stage.status} />
+                        </div>
+                        <h3 className="mt-3 text-sm font-semibold">{stage.label}</h3>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{stage.summary}</p>
+                        {stage.action_href && stage.status !== 'green' && (
+                            <Link href={stage.action_href} className="mt-3 inline-flex text-xs font-semibold text-primary">Review</Link>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}
 
 function PostFlightPropagationPanel({ missionId, propagation }: { missionId: number; propagation: PostFlightPropagationSummary }) {
     const { data, setData, post, processing, errors } = useForm({

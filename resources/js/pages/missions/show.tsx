@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/uas/status-badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, CircleAlert, Rocket, SendToBack } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, CircleAlert, Rocket, SendToBack } from 'lucide-react';
 import { MissionBatteryReport, MissionChecklistReport, MissionComplianceSummary, MissionCrewReport, MissionDefectReport, MissionJourneySummary, MissionProfile, MissionTrackReport, PostFlightPropagationSummary, SpatialRuleReview } from './types';
 
 export default function Show({ mission, missionCompliance, spatialRuleReview, preFlightChecklist, postFlightChecklist, postFlightPropagation, crew, tracks, batteries, defects }: { mission: MissionProfile; missionCompliance: MissionComplianceSummary; spatialRuleReview: SpatialRuleReview; preFlightChecklist: MissionChecklistReport; postFlightChecklist: MissionChecklistReport; postFlightPropagation: PostFlightPropagationSummary; crew: MissionCrewReport; tracks: MissionTrackReport; batteries: MissionBatteryReport; defects: MissionDefectReport }) {

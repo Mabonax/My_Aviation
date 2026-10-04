@@ -401,7 +401,9 @@ it('returns a persona-aware bootstrap contract for a personal pilot', function (
         ->assertJsonPath('data.experience.workspace.type', 'personal')
         ->assertJsonPath('data.experience.readiness.state', 'amber')
         ->assertJsonPath('data.experience.capabilities.personal_pilot', true)
-        ->assertJsonPath('data.experience.capabilities.operator_workspace', false);
+        ->assertJsonPath('data.experience.capabilities.operator_workspace', false)
+        ->assertJsonPath('data.experience.action_centre.summary.critical', 1)
+        ->assertJsonPath('data.experience.action_centre.items.0.key', 'pilot.certificate.missing');
 });
 
 it('returns the active operator persona and server-owned navigation in bootstrap', function () {
@@ -428,7 +430,9 @@ it('returns the active operator persona and server-owned navigation in bootstrap
         ->assertJsonPath('data.experience.persona', 'operator_manager')
         ->assertJsonPath('data.experience.workspace.operator.id', $operator->id)
         ->assertJsonPath('data.experience.capabilities.manage_operator', true)
-        ->assertJsonFragment(['key' => 'missions', 'label' => 'Missions', 'path' => '/missions']);
+        ->assertJsonFragment(['key' => 'missions', 'label' => 'Missions', 'path' => '/missions'])
+        ->assertJsonFragment(['key' => 'aircraft', 'label' => 'Aircraft', 'path' => '/aircraft'])
+        ->assertJsonFragment(['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register']);
 });
 
 

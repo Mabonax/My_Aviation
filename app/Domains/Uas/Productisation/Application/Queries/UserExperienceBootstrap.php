@@ -155,7 +155,7 @@ class UserExperienceBootstrap
             'personal_pilot' => true,
             'operator_workspace' => $operatorMode,
             'missions' => $operatorMode,
-            'aircraft' => $operatorMode,
+            'aircraft' => $operatorMode && in_array($persona, ['operator_pilot', 'maintenance_officer', 'operator_manager', 'platform_admin'], true),
             'release_mission' => $operatorManager,
             'manage_operator' => $operatorManager,
             'manage_compliance' => $compliance,
@@ -178,9 +178,15 @@ class UserExperienceBootstrap
         $items = [
             ['key' => 'home', 'label' => 'Operations', 'path' => '/dashboard'],
             ['key' => 'missions', 'label' => 'Missions', 'path' => '/missions'],
-            ['key' => 'aircraft', 'label' => 'Aircraft', 'path' => '/aircraft'],
-            ['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register'],
         ];
+
+        if (in_array($persona, ['operator_pilot', 'maintenance_officer', 'operator_manager', 'platform_admin'], true)) {
+            $items[] = ['key' => 'aircraft', 'label' => 'Aircraft', 'path' => '/aircraft'];
+        }
+
+        if (in_array($persona, ['compliance_officer', 'operator_manager', 'platform_admin'], true)) {
+            $items[] = ['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register'];
+        }
 
         if (in_array($persona, ['maintenance_officer', 'operator_manager', 'platform_admin'], true)) {
             $items[] = ['key' => 'defects', 'label' => 'Technical', 'path' => '/defects'];

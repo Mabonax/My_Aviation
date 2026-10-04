@@ -46,3 +46,6 @@ Stages:
 API V1 now exposes `POST /api/v1/missions/{mission}/release`. The endpoint retains the existing tenant boundary, policy authorization, lifecycle rules, pilot/operator approval checks, compliance gate and aeronautical-information release checks implemented by `ReleaseMission`.
 
 The web mission detail now presents the chronological journey before the lower-level evidence panels.
+
+
+Action Centre implementation in progress.

@@ -66,6 +66,7 @@ class UserExperienceBootstrap
             ],
             'capabilities' => $this->capabilities($persona, $operator !== null),
             'navigation' => $this->navigation($persona, $operator !== null),
+            'action_centre' => $this->actionCentre->execute($user, $operator),
         ];
     }
 

@@ -6,6 +6,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Productisation\Application\Queries\UserExperienceBootstrap;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -39,10 +40,16 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
         $workspace = null;
+        $experience = null;
         if ($request->user()) {
             $context = app(CurrentOperatorContext::class);
             $active = $context->resolveFromRequest($request);
             $operators = $context->scopeOperatorsFor($request->user())->orderBy('legal_entity')->get(['id','legal_entity','trading_name','operator_code']);
+            $experience = app(UserExperienceBootstrap::class)->execute(
+                $request->user(),
+                $active,
+                $context->hasGlobalOperatorAccess($request->user()),
+            );
             $workspace = [
                 'active_operator' => $active ? ['id'=>$active->id,'name'=>$active->trading_name ?: $active->legal_entity,'operator_code'=>$active->operator_code] : null,
                 'operators' => $operators->map(fn($operator)=>['id'=>$operator->id,'name'=>$operator->trading_name ?: $operator->legal_entity,'operator_code'=>$operator->operator_code])->values(),
@@ -59,6 +66,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'operatorWorkspace' => $workspace,
+            'experience' => $experience,
         ]);
     }
 }

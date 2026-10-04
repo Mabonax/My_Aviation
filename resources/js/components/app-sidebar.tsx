@@ -1,126 +1,53 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { AlertTriangle, BatteryCharging, Bell, BookOpen, Building2, ClipboardCheck, ExternalLink, FileArchive, FileText, Folder, GraduationCap, LayoutGrid, Map, Network, Plane, ReceiptText, Scale, ShieldCheck, UserCircle, UserRound } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { AlertTriangle, BatteryCharging, Building2, ClipboardCheck, FileArchive, GraduationCap, LayoutGrid, Map, Plane, Scale, UserCircle } from 'lucide-react';
 import AppLogo from './app-logo';
 import { OperatorWorkspaceSwitcher } from './operator-workspace-switcher';
 
-const mainNavItems: NavItem[] = [
-    { title: 'Aeronautical Information', url: '/aeronautical-information', icon: Map },
-    {
-        title: 'Dashboard',
-        url: '/dashboard',
-        icon: LayoutGrid,
-    },
-    {
-        title: 'My Pilot',
-        url: '/my/pilot',
-        icon: UserCircle,
-    },
-    {
-        title: 'Operators',
-        url: '/operators',
-        icon: Building2,
-    },
-    {
-        title: 'Pilots',
-        url: '/pilots',
-        icon: UserRound,
-    },
-    {
-        title: 'Aircraft',
-        url: '/aircraft',
-        icon: Plane,
-    },
-    {
-        title: 'Aircraft Catalogue',
-        url: '/aircraft-catalogue',
-        icon: FileText,
-    },
-    {
-        title: 'Training',
-        url: '/training-courses',
-        icon: GraduationCap,
-    },
-    {
-        title: 'Regulations',
-        url: '/regulatory-requirements',
-        icon: Scale,
-    },
-    {
-        title: 'Forms',
-        url: '/regulatory-forms',
-        icon: FileText,
-    },
-    {
-        title: 'Fees',
-        url: '/regulatory-fees',
-        icon: ReceiptText,
-    },
-    {
-        title: 'External',
-        url: '/regulatory-external-integrations',
-        icon: ExternalLink,
-    },
-    {
-        title: 'Compliance',
-        url: '/compliance/register',
-        icon: ClipboardCheck,
-    },
-    {
-        title: 'Evidence',
-        url: '/evidence-documents',
-        icon: FileArchive,
-    },
-    {
-        title: 'Traceability',
-        url: '/compliance/traceability',
-        icon: Network,
-    },
-    {
-        title: 'GIS Projects',
-        url: '/gis-projects',
-        icon: Map,
-    },
-    {
-        title: 'Notifications',
-        url: '/compliance-notifications',
-        icon: Bell,
-    },
-    {
-        title: 'Batteries',
-        url: '/batteries',
-        icon: BatteryCharging,
-    },
-    {
-        title: 'Defects',
-        url: '/defects',
-        icon: AlertTriangle,
-    },
-    {
-        title: 'Phase 1 Verify',
-        url: '/phase-1/verification',
-        icon: ShieldCheck,
-    },
-];
+interface ExperienceNavigationItem {
+    key: string;
+    label: string;
+    path: string;
+}
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        url: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        url: 'https://laravel.com/docs/starter-kits',
-        icon: BookOpen,
-    },
-];
+interface Experience {
+    persona: string;
+    navigation: ExperienceNavigationItem[];
+}
+
+const iconFor = (key: string) => {
+    const icons = {
+        home: LayoutGrid,
+        pilot: UserCircle,
+        operators: Building2,
+        operator: Building2,
+        missions: Map,
+        aircraft: Plane,
+        compliance: ClipboardCheck,
+        evidence: FileArchive,
+        training: GraduationCap,
+        regulations: Scale,
+        batteries: BatteryCharging,
+        defects: AlertTriangle,
+    } as const;
+
+    return icons[key as keyof typeof icons] ?? LayoutGrid;
+};
 
 export function AppSidebar() {
+    const { experience } = usePage<{ experience: Experience | null }>().props;
+
+    const mainNavItems: NavItem[] = (experience?.navigation ?? [
+        { key: 'home', label: 'Dashboard', path: '/dashboard' },
+    ]).map((item) => ({
+        title: item.label,
+        url: item.path,
+        icon: iconFor(item.key),
+    }));
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -142,7 +69,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

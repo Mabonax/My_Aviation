@@ -432,7 +432,12 @@ it('returns the active operator persona and server-owned navigation in bootstrap
         ->assertJsonPath('data.experience.capabilities.manage_operator', true)
         ->assertJsonFragment(['key' => 'missions', 'label' => 'Missions', 'path' => '/missions'])
         ->assertJsonFragment(['key' => 'aircraft', 'label' => 'Aircraft', 'path' => '/aircraft'])
-        ->assertJsonFragment(['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register']);
+        ->assertJsonFragment(['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register'])
+        ->assertJsonFragment(['key' => 'evidence', 'label' => 'Evidence', 'path' => '/evidence-documents'])
+        ->assertJsonFragment(['key' => 'training', 'label' => 'Training', 'path' => '/training-courses'])
+        ->assertJsonFragment(['key' => 'regulations', 'label' => 'Regulations', 'path' => '/regulatory-requirements'])
+        ->assertJsonFragment(['key' => 'batteries', 'label' => 'Batteries', 'path' => '/batteries'])
+        ->assertJsonFragment(['key' => 'gis', 'label' => 'GIS Projects', 'path' => '/gis-projects']);
 });
 
 

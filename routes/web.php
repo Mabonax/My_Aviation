@@ -9,6 +9,7 @@ use App\Domains\Uas\Checklists\Http\Controllers\PreFlightChecklistController;
 use App\Domains\Uas\Compliance\Application\Queries\ComplianceDashboardSummary;
 use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
 use App\Domains\Uas\Productisation\Application\Queries\UserExperienceBootstrap;
+use App\Domains\Uas\Productisation\Application\Queries\OperatorDashboardOverview;
 use App\Domains\Uas\Compliance\Http\Controllers\ComplianceRegisterController;
 use App\Domains\Uas\Compliance\Http\Controllers\ComplianceTraceabilityController;
 use App\Domains\Uas\Crew\Http\Controllers\MissionCrewController;
@@ -63,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
         ComplianceDashboardSummary $summary,
         CurrentOperatorContext $operatorContext,
         UserExperienceBootstrap $bootstrap,
+        OperatorDashboardOverview $overview,
     ) {
         $user = $request->user();
         $operator = $operatorContext->resolveFromRequest($request);
@@ -74,6 +76,7 @@ Route::middleware(['auth'])->group(function () {
                 $operator,
                 $operatorContext->hasGlobalOperatorAccess($user),
             ),
+            'operatorOverview' => $overview->execute($operator),
         ]);
     })->name('dashboard');
 

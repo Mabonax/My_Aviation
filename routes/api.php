@@ -45,6 +45,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('compliance/findings', [TenantOperationalController::class, 'complianceFindings'])->name('compliance.findings');
         Route::get('missions', [MissionController::class, 'index'])->name('missions.index');
         Route::get('missions/{mission}/compliance', [MissionController::class, 'compliance'])->name('missions.compliance');
+        Route::post('missions/{mission}/release', [MissionController::class, 'release'])->name('missions.release');
         Route::get('missions/{mission}/post-flight-propagation', [MissionController::class, 'postFlightPropagation'])->name('missions.post-flight-propagation.show');
         Route::post('missions/{mission}/post-flight-propagation', [MissionController::class, 'propagatePostFlight'])->name('missions.post-flight-propagation.store');
         Route::get('missions/{mission}', [MissionController::class, 'show'])->name('missions.show');

@@ -25,7 +25,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('missions/{mission}/briefing', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'store'])->name('missions.briefing.store');
         Route::post('missions/{mission}/briefing/{briefing}/acknowledge', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'acknowledge'])->name('missions.briefing.acknowledge');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
-        Route::get('me', [CurrentUserController::class, 'me'])->name('me');\n        Route::get('me/bootstrap', [CurrentUserController::class, 'bootstrap'])->name('me.bootstrap');
+        Route::get('me', [CurrentUserController::class, 'me'])->name('me');
+        Route::get('me/bootstrap', [CurrentUserController::class, 'bootstrap'])->name('me.bootstrap');
         Route::get('me/pilot', [CurrentUserController::class, 'pilot'])->name('me.pilot');
         Route::get('me/operators', [CurrentUserController::class, 'operators'])->name('me.operators');
         Route::get('me/operator-context', [CurrentUserController::class, 'operatorContext'])->name('me.operator-context');

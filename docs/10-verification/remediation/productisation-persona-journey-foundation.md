@@ -23,3 +23,26 @@ The backend remains authoritative for tenancy, capabilities, readiness and the u
 4. Add action/notification centre.
 5. Add end-to-end persona acceptance tests.
 6. Expand public website onboarding for pilots and operators.
+
+
+## Mission journey workspace slice
+
+The productisation branch now also provides a server-owned chronological mission journey.
+
+Stages:
+
+1. Planning
+2. Crew
+3. Aircraft
+4. Airspace
+5. Risk
+6. Compliance
+7. Release
+8. Flight
+9. Post-flight
+
+`MissionJourneySummary` derives stage state from the existing mission lifecycle and authoritative compliance controls. `MissionPresenter` includes this journey in full mission detail responses, so React and Flutter consume the same interpretation.
+
+API V1 now exposes `POST /api/v1/missions/{mission}/release`. The endpoint retains the existing tenant boundary, policy authorization, lifecycle rules, pilot/operator approval checks, compliance gate and aeronautical-information release checks implemented by `ReleaseMission`.
+
+The web mission detail now presents the chronological journey before the lower-level evidence panels.

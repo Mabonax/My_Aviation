@@ -8,6 +8,8 @@ use App\Models\User;
 
 class UserExperienceBootstrap
 {
+    public function __construct(private readonly UniversalActionCentre $actionCentre) {}
+
     public function execute(User $user, ?UasOperator $operator, bool $platformAuthority = false): array
     {
         $pilot = $user->pilotProfile()->first();

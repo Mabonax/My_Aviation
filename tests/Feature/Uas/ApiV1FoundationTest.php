@@ -430,3 +430,32 @@ it('returns the active operator persona and server-owned navigation in bootstrap
         ->assertJsonPath('data.experience.capabilities.manage_operator', true)
         ->assertJsonFragment(['key' => 'missions', 'label' => 'Missions', 'path' => '/missions']);
 });
+
+
+it('exposes the server-owned mission journey and release endpoint in API V1', function () {
+    $user = apiUser();
+    $operator = apiOperator(['legal_entity' => 'Journey Operator']);
+    $mission = apiMission($operator, ['mission_number' => 'MIS-JOURNEY-001']);
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operator->id,
+        'user_id' => $user->id,
+        'membership_role' => UasOperatorMembership::ROLE_OPERATIONS_MANAGER,
+        'status' => UasOperatorMembership::STATUS_ACTIVE,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->withHeader('X-YAW-Operator', (string) $operator->id)
+        ->getJson('/api/v1/missions/'.$mission->id)
+        ->assertOk()
+        ->assertJsonPath('data.mission.journey.current_stage', 'planning')
+        ->assertJsonFragment(['key' => 'planning', 'label' => 'Planning'])
+        ->assertJsonFragment(['key' => 'release', 'label' => 'Release'])
+        ->assertJsonFragment(['key' => 'post_flight', 'label' => 'Post-flight']);
+
+    $this->withHeader('X-YAW-Operator', (string) $operator->id)
+        ->postJson('/api/v1/missions/'.$mission->id.'/release')
+        ->assertUnprocessable()
+        ->assertJsonPath('error', 'validation_failed');
+});

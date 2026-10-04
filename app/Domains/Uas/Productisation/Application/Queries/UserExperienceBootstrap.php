@@ -161,6 +161,9 @@ class UserExperienceBootstrap
             'manage_operator' => $operatorManager,
             'manage_compliance' => $compliance,
             'manage_maintenance' => $maintenance,
+            'manage_training' => in_array($persona, ['compliance_officer', 'operator_manager', 'platform_admin'], true),
+            'manage_regulatory' => in_array($persona, ['compliance_officer', 'operator_manager', 'platform_admin'], true),
+            'manage_gis' => in_array($persona, ['operator_manager', 'platform_admin'], true),
             'manage_platform' => $persona === 'platform_admin',
         ];
     }
@@ -187,13 +190,18 @@ class UserExperienceBootstrap
 
         if (in_array($persona, ['compliance_officer', 'operator_manager', 'platform_admin'], true)) {
             $items[] = ['key' => 'compliance', 'label' => 'Compliance', 'path' => '/compliance/register'];
+            $items[] = ['key' => 'evidence', 'label' => 'Evidence', 'path' => '/evidence-documents'];
+            $items[] = ['key' => 'training', 'label' => 'Training', 'path' => '/training-courses'];
+            $items[] = ['key' => 'regulations', 'label' => 'Regulations', 'path' => '/regulatory-requirements'];
         }
 
         if (in_array($persona, ['maintenance_officer', 'operator_manager', 'platform_admin'], true)) {
+            $items[] = ['key' => 'batteries', 'label' => 'Batteries', 'path' => '/batteries'];
             $items[] = ['key' => 'defects', 'label' => 'Technical', 'path' => '/defects'];
         }
 
         if (in_array($persona, ['operator_manager', 'platform_admin'], true)) {
+            $items[] = ['key' => 'gis', 'label' => 'GIS Projects', 'path' => '/gis-projects'];
             $items[] = ['key' => 'operator', 'label' => 'Operator', 'path' => '/operators'];
         }
 

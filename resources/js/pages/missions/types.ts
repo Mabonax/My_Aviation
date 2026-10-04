@@ -63,6 +63,7 @@ export interface MissionProfile {
         evaluated_at?: string;
     };
     compliance: MissionComplianceSummary;
+    journey: MissionJourneySummary;
     post_flight_propagation: PostFlightPropagationSummary;
     evidence: EvidenceSummary;
     regulatory_source: string;
@@ -70,6 +71,33 @@ export interface MissionProfile {
     regulatory_effective_date: string | null;
     regulatory_applicability: string;
     responsible_role: string;
+}
+
+export interface MissionJourneyStage {
+    key: string;
+    label: string;
+    status: 'green' | 'amber' | 'red' | 'pending';
+    summary: string;
+    blocking: boolean;
+    action_href: string | null;
+}
+
+export interface MissionJourneySummary {
+    current_stage: string;
+    lifecycle_state: string;
+    readiness: {
+        status: 'green' | 'amber' | 'red';
+        label: string;
+        blocking_count: number;
+        warning_count: number;
+    };
+    next_action: {
+        stage: string;
+        label: string;
+        summary: string;
+        action_href: string | null;
+    } | null;
+    stages: MissionJourneyStage[];
 }
 
 export interface SpatialRuleReview {

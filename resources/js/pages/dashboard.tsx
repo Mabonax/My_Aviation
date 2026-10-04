@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleAlert, FileWarning, Plane, ShieldCheck, UserRound } from 'lucide-react';
+import { StatusBadge } from '@/components/uas/status-badge';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -99,6 +100,40 @@ export default function Dashboard({ summary, experience }: { summary: DashboardS
                         )
                     }
                 />
+
+                <section className="rounded-2xl border bg-card p-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Action Centre</p>
+                            <h2 className="mt-1 text-xl font-semibold">What needs attention</h2>
+                        </div>
+                        <StatusBadge value={experience.readiness.state} />
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                        {experience.onboarding.steps.filter((step) => !step.complete).map((step) => (
+                            <div key={step.key} className="rounded-xl border p-4">
+                                <div className="flex items-center gap-2">
+                                    <CircleAlert className="h-4 w-4" />
+                                    <span className="text-sm font-semibold">{step.label}</span>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">{step.blocking ? 'Critical readiness action' : 'Recommended action'}</p>
+                                {step.action && <Link href={step.action} className="mt-3 inline-flex text-xs font-semibold text-primary">Open action</Link>}
+                            </div>
+                        ))}
+                        {summary.certificates_expiring_30_days > 0 && (
+                            <div className="rounded-xl border p-4">
+                                <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-sm font-semibold">Expiring certificates</span></div>
+                                <p className="mt-1 text-xs text-muted-foreground">{summary.certificates_expiring_30_days} certificate(s) expire within 30 days.</p>
+                            </div>
+                        )}
+                        {summary.open_findings > 0 && (
+                            <div className="rounded-xl border p-4">
+                                <div className="flex items-center gap-2"><FileWarning className="h-4 w-4" /><span className="text-sm font-semibold">Open compliance findings</span></div>
+                                <p className="mt-1 text-xs text-muted-foreground">{summary.open_findings} finding(s) remain unresolved.</p>
+                            </div>
+                        )}
+                    </div>
+                </section>
 
                 <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
                     <section className="rounded-2xl border bg-card p-5">

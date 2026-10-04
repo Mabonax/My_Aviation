@@ -382,3 +382,51 @@ it('does not expose a mission from another active membership while operating in 
         ->getJson('/api/v1/missions/'.$missionB->id)
         ->assertNotFound();
 });
+
+
+it('returns a persona-aware bootstrap contract for a personal pilot', function () {
+    $user = apiUser();
+    apiPilot([
+        'user_id' => $user->id,
+        'sacaa_certificate_number' => 'RPC-BOOT-001',
+        'medical_status' => 'valid',
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/me/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('data.user.id', $user->id)
+        ->assertJsonPath('data.experience.persona', 'personal_pilot')
+        ->assertJsonPath('data.experience.workspace.type', 'personal')
+        ->assertJsonPath('data.experience.readiness.state', 'amber')
+        ->assertJsonPath('data.experience.capabilities.personal_pilot', true)
+        ->assertJsonPath('data.experience.capabilities.operator_workspace', false);
+});
+
+it('returns the active operator persona and server-owned navigation in bootstrap', function () {
+    $user = apiUser();
+    apiPilot([
+        'user_id' => $user->id,
+        'sacaa_certificate_number' => 'RPC-BOOT-002',
+        'medical_status' => 'valid',
+    ]);
+    $operator = apiOperator(['legal_entity' => 'Bootstrap Operator']);
+
+    UasOperatorMembership::query()->create([
+        'uas_operator_id' => $operator->id,
+        'user_id' => $user->id,
+        'membership_role' => UasOperatorMembership::ROLE_OPERATIONS_MANAGER,
+        'status' => UasOperatorMembership::STATUS_ACTIVE,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->withHeader('X-YAW-Operator', (string) $operator->id)
+        ->getJson('/api/v1/me/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('data.experience.persona', 'operator_manager')
+        ->assertJsonPath('data.experience.workspace.operator.id', $operator->id)
+        ->assertJsonPath('data.experience.capabilities.manage_operator', true)
+        ->assertJsonFragment(['key' => 'missions', 'label' => 'Missions', 'path' => '/missions']);
+});

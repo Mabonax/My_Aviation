@@ -3,10 +3,11 @@
 namespace App\Domains\Uas\Api\Http\Controllers\V1;
 
 use App\Domains\Uas\Api\Application\ApiResponse;
-use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership;
 use App\Domains\Uas\Pilots\Application\Queries\CurrentPilotProfile;
 use App\Domains\Uas\Pilots\Application\Queries\PilotProfilePresenter;
+use App\Domains\Uas\Productisation\Application\Queries\UserExperienceBootstrap;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,38 @@ class CurrentUserController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
             ],
+        ]);
+    }
+
+    public function bootstrap(
+        Request $request,
+        CurrentOperatorContext $operatorContext,
+        UserExperienceBootstrap $bootstrap,
+    ): JsonResponse {
+        $user = $request->user();
+        $requestedId = $operatorContext->requestedOperatorId($request);
+        $operator = $operatorContext->resolve($user, $requestedId);
+
+        if ($requestedId !== null && $operator === null) {
+            return ApiResponse::error('operator_context_forbidden', 'The requested YAW operator context is not accessible.', 403);
+        }
+
+        return ApiResponse::success([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+            'pilot' => ($pilot = $user->pilotProfile()->first())
+                ? PilotProfilePresenter::toArray($pilot)
+                : null,
+            'operators' => $this->operatorPayload($user, $operatorContext),
+            'experience' => $bootstrap->execute(
+                $user,
+                $operator,
+                $operatorContext->hasGlobalOperatorAccess($user),
+            ),
         ]);
     }
 
@@ -71,10 +104,15 @@ class CurrentUserController extends Controller
 
     public function operators(Request $request, CurrentOperatorContext $operatorContext): JsonResponse
     {
-        $user = $request->user();
+        return ApiResponse::success([
+            'operators' => $this->operatorPayload($request->user(), $operatorContext),
+        ]);
+    }
 
+    private function operatorPayload($user, CurrentOperatorContext $operatorContext): array
+    {
         if ($operatorContext->hasGlobalOperatorAccess($user)) {
-            $operators = $operatorContext->scopeOperatorsFor($user)
+            return $operatorContext->scopeOperatorsFor($user)
                 ->orderBy('legal_entity')
                 ->get()
                 ->map(fn ($operator): array => [
@@ -87,11 +125,9 @@ class CurrentUserController extends Controller
                 ])
                 ->values()
                 ->all();
-
-            return ApiResponse::success(['operators' => $operators]);
         }
 
-        $operators = $user->operatorMemberships()
+        return $user->operatorMemberships()
             ->with('operator')
             ->where('status', UasOperatorMembership::STATUS_ACTIVE)
             ->orderBy('membership_role')
@@ -106,7 +142,5 @@ class CurrentUserController extends Controller
             ])
             ->values()
             ->all();
-
-        return ApiResponse::success(['operators' => $operators]);
     }
 }

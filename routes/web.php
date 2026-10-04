@@ -7,6 +7,8 @@ use App\Domains\Uas\Aircraft\Http\Controllers\AircraftCatalogueController;
 use App\Domains\Uas\Checklists\Http\Controllers\PostFlightChecklistController;
 use App\Domains\Uas\Checklists\Http\Controllers\PreFlightChecklistController;
 use App\Domains\Uas\Compliance\Application\Queries\ComplianceDashboardSummary;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Productisation\Application\Queries\UserExperienceBootstrap;
 use App\Domains\Uas\Compliance\Http\Controllers\ComplianceRegisterController;
 use App\Domains\Uas\Compliance\Http\Controllers\ComplianceTraceabilityController;
 use App\Domains\Uas\Crew\Http\Controllers\MissionCrewController;
@@ -56,9 +58,22 @@ Route::middleware(['auth'])->group(function () {
     Route::get('missions/{mission}/briefing', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'show'])->name('missions.briefing.show');
     Route::post('missions/{mission}/briefing', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'store'])->name('missions.briefing.store');
     Route::post('missions/{mission}/briefing/{briefing}/acknowledge', [\App\Domains\Uas\AeronauticalInformation\Http\Controllers\MissionBriefingController::class, 'acknowledge'])->name('missions.briefing.acknowledge');
-    Route::get('dashboard', function (ComplianceDashboardSummary $summary) {
+    Route::get('dashboard', function (
+        \Illuminate\Http\Request $request,
+        ComplianceDashboardSummary $summary,
+        CurrentOperatorContext $operatorContext,
+        UserExperienceBootstrap $bootstrap,
+    ) {
+        $user = $request->user();
+        $operator = $operatorContext->resolveFromRequest($request);
+
         return Inertia::render('dashboard', [
             'summary' => $summary->execute(),
+            'experience' => $bootstrap->execute(
+                $user,
+                $operator,
+                $operatorContext->hasGlobalOperatorAccess($user),
+            ),
         ]);
     })->name('dashboard');
 

@@ -36,3 +36,12 @@ test('super admins can access protected UAS sections', function () {
     $this->get('/regulatory-forms')->assertOk();
     $this->get('/compliance/register')->assertOk();
 });
+
+test('dashboard workspace sharing uses the operator UASOC number without querying a legacy operator code column', function () {
+    $user = User::factory()->create(['role' => 'super_admin']);
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('operatorWorkspace'));
+});

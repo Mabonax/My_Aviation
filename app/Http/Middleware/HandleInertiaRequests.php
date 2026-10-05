@@ -44,15 +44,15 @@ class HandleInertiaRequests extends Middleware
         if ($request->user()) {
             $context = app(CurrentOperatorContext::class);
             $active = $context->resolveFromRequest($request);
-            $operators = $context->scopeOperatorsFor($request->user())->orderBy('legal_entity')->get(['id','legal_entity','trading_name','operator_code']);
+            $operators = $context->scopeOperatorsFor($request->user())->orderBy('legal_entity')->get(['id','legal_entity','trading_name','uasoc_number']);
             $experience = app(UserExperienceBootstrap::class)->execute(
                 $request->user(),
                 $active,
                 $context->hasGlobalOperatorAccess($request->user()),
             );
             $workspace = [
-                'active_operator' => $active ? ['id'=>$active->id,'name'=>$active->trading_name ?: $active->legal_entity,'operator_code'=>$active->operator_code] : null,
-                'operators' => $operators->map(fn($operator)=>['id'=>$operator->id,'name'=>$operator->trading_name ?: $operator->legal_entity,'operator_code'=>$operator->operator_code])->values(),
+                'active_operator' => $active ? ['id'=>$active->id,'name'=>$active->trading_name ?: $active->legal_entity,'operator_code'=>$active->uasoc_number] : null,
+                'operators' => $operators->map(fn($operator)=>['id'=>$operator->id,'name'=>$operator->trading_name ?: $operator->legal_entity,'operator_code'=>$operator->uasoc_number])->values(),
                 'requires_selection' => $active === null && $operators->count() > 1,
                 'can_manage' => $active ? $context->canManageOperator($request->user(),$active) : false,
             ];

@@ -48,6 +48,11 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
+// Public product information; operational workspaces remain authenticated.
+foreach (['solutions', 'pilots', 'operators', 'compliance', 'how-it-works', 'about'] as $publicPage) {
+    Route::get('/'.(in_array($publicPage, ['pilots', 'operators']) ? 'for-' : '').$publicPage, fn () => Inertia::render('public-page', ['page' => $publicPage]))
+        ->name('public.'.$publicPage);
+}
 
 Route::middleware(['auth'])->group(function () {
     Route::post('operator-workspace', [OperatorWorkspaceController::class, 'select'])->name('operator-workspace.select');

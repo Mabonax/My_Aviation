@@ -29,3 +29,5 @@ Each feature file should include:
 - `notifications.md`
 
 - [Aeronautical information](aeronautical-information.md) - FR-AIM-001 through FR-AIM-008.
+
+- [YAW public website](public-website.md) — public presentation and brand consistency, requested 2026-10-05.

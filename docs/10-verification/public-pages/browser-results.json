@@ -1,0 +1,66 @@
+[
+  {
+    "width": 1440,
+    "overflow": false,
+    "missingImages": [],
+    "h1": "Plan. Fly.\nComply."
+  },
+  {
+    "width": 768,
+    "overflow": false,
+    "missingImages": [],
+    "h1": "Plan. Fly.\nComply."
+  },
+  {
+    "width": 390,
+    "overflow": false,
+    "missingImages": [],
+    "h1": "Plan. Fly.\nComply."
+  },
+  {
+    "width": 320,
+    "overflow": false,
+    "missingImages": [],
+    "h1": "Plan. Fly.\nComply."
+  },
+  {
+    "mobileNavigation": "Your next flight starts here."
+  },
+  {
+    "path": "/solutions",
+    "h1": "Everything your operation needs.",
+    "overflow": false
+  },
+  {
+    "path": "/for-pilots",
+    "h1": "Your next flight starts here.",
+    "overflow": false
+  },
+  {
+    "path": "/for-operators",
+    "h1": "Your operation. Connected.",
+    "overflow": false
+  },
+  {
+    "path": "/compliance",
+    "h1": "Confidence comes from clarity.",
+    "overflow": false
+  },
+  {
+    "path": "/how-it-works",
+    "h1": "From setup to take-off.",
+    "overflow": false
+  },
+  {
+    "path": "/about",
+    "h1": "A safer, smarter tomorrow.",
+    "overflow": false
+  },
+  {
+    "roleSwitch": 1
+  },
+  {
+    "faqOpen": 1,
+    "errors": []
+  }
+]

@@ -55,3 +55,7 @@ Baseline verification:
 All Phase 1 requirements are now `VERIFIED` at repository level in the working tree. Verification evidence covers automated tests, authenticated workflow checks, export, scheduler registration, notification planning, audit events, migration proof, frontend build proof and documentation traceability.
 
 External production-readiness items remain outside this Phase 1 repository gate: official SACAA dataset import/reconciliation, final operating-role assignment, deployment-site browser sign-off and mobile device/offline acceptance.
+
+## Public presentation extension — 2026-10-05
+
+The user-requested [YAW public website](../07-feature-register/public-website.md) presents pilot/fleet and related operational capabilities through seven shared-brand information pages. This is presentation work supporting platform discovery, not a change to founding regulatory requirement states. Existing operational route permissions remain intact. See [verification evidence](../10-verification/public-pages/README.md).

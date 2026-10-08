@@ -156,6 +156,7 @@ class ImportMissionTelemetry
             actor: $actor, auditable: $import, action: $action, requirementId: 'FR-TEL-001',
             regulatorySource: 'YAW CSV v1 operational evidence; not a regulatory approval',
             previousValues: null, newValues: $values,
+            operatorId: $import->uas_operator_id, operatorContextSource: 'telemetry_import',
         ));
     }
 

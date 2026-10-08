@@ -16,8 +16,8 @@ class CanonicalCsvTelemetryParser
 
     public function parse(string $csv): array
     {
-        if ($csv === '' || strlen($csv) > self::MAX_BYTES || str_contains($csv, "\0")) {
-            $this->fail('The CSV must be non-empty, contain no NUL bytes and be at most 2 MiB.');
+        if ($csv === '' || strlen($csv) > self::MAX_BYTES || str_contains($csv, "\0") || preg_match('//u', $csv) !== 1) {
+            $this->fail('The CSV must be non-empty UTF-8, contain no NUL bytes and be at most 2 MiB.');
         }
 
         $stream = fopen('php://temp', 'r+');

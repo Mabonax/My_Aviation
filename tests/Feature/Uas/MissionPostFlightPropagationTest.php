@@ -362,3 +362,140 @@ it('renders the mission close-out propagation panel', function () {
             ->where('mission.post_flight_propagation.state', 'pending')
         );
 });
+
+
+
+function telemetryCsvForMission(UasMission $mission): string
+{
+    $serial = $mission->aircraft->serial_number;
+    return "recorded_at,latitude,longitude,altitude_ft,aircraft_serial,event\n"
+        ."2026-01-01T08:00:00Z,-25.9,28.1,0,{$serial},takeoff\n"
+        ."2026-01-01T08:30:00Z,-25.8,28.2,250,{$serial},sample\n"
+        ."2026-01-01T09:00:00Z,-25.9,28.1,0,{$serial},landing\n";
+}
+
+function telemetryDeclarations(): array
+{
+    return ['telemetry_confirmed' => true, 'pilot_confirmed' => true,
+        'aircraft_confirmed' => true, 'defects_declared' => false,
+        'occurrence_declared' => false, 'closure_notes' => 'Reviewed flight samples.'];
+}
+
+it('never turns planned times into actual evidence when called directly', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightPropagationChecklist($mission);
+    expect(fn () => app(\App\Domains\Uas\Missions\Application\Actions\PropagatePostFlightRecords::class)
+        ->execute($mission, $user))->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect(PilotLogEntry::query()->count())->toBe(0)
+        ->and(AircraftFlightFolio::query()->count())->toBe(0);
+});
+
+it('stages telemetry without changing records then propagates once after review through API V1', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/missions/{$mission->id}/telemetry-imports";
+    $upload = fn () => \Illuminate\Http\UploadedFile::fake()->createWithContent('flight.csv', telemetryCsvForMission($mission));
+    $response = $this->post($url, ['file' => $upload()], ['Accept' => 'application/json'])
+        ->assertOk()->assertJsonPath('data.telemetry_import.state', 'pending_review')
+        ->assertJsonPath('data.telemetry_import.flight.point_count', 3);
+    $id = $response->json('data.telemetry_import.id');
+    $this->post($url, ['file' => $upload()], ['Accept' => 'application/json'])
+        ->assertOk()->assertJsonPath('data.telemetry_import.id', $id);
+    expect($mission->refresh()->actual_takeoff_at)->toBeNull()
+        ->and(PilotLogEntry::query()->count())->toBe(0)
+        ->and(UasFlightTrack::query()->count())->toBe(0);
+    $this->getJson($url)->assertOk()->assertJsonMissingPath('data.telemetry_imports.data.0.raw_csv');
+    $accept = $url."/{$id}/accept";
+    $this->postJson($accept, telemetryDeclarations())->assertOk()
+        ->assertJsonPath('data.telemetry_import.state', 'accepted');
+    $this->postJson($accept, telemetryDeclarations())->assertOk();
+    expect(PilotLogEntry::query()->count())->toBe(1)
+        ->and(AircraftFlightFolio::query()->count())->toBe(1)
+        ->and(UasFlightTrack::query()->count())->toBe(1)
+        ->and((float) PilotLogEntry::query()->firstOrFail()->flight_hours)->toBe(1.0)
+        ->and(UasAuditEntry::query()->where('action', 'telemetry.accepted')->count())->toBe(1);
+});
+
+it('rolls back track and propagation when the post-flight checklist is blocked', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission, 'blocked');
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect($import->refresh()->state)->toBe('pending_review')
+        ->and(UasFlightTrack::query()->count())->toBe(0)
+        ->and(PilotLogEntry::query()->count())->toBe(0)
+        ->and($mission->refresh()->post_flight_propagated_at)->toBeNull();
+});
+
+it('rejects a flight reused across missions of the same operator', function () {
+    $mission = postFlightPropagationMission();
+    $other = postFlightPropagationMission(['operator' => $mission->operator, 'aircraft' => $mission->aircraft]);
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->stage($other, $user, telemetryCsvForMission($other)))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+});
+
+it('protects existing actual times and records already propagated through manual close-out', function () {
+    $mission = postFlightPropagationMission(['actual_takeoff_at' => '2026-01-01 07:00:00']);
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    $mission->forceFill(['post_flight_propagated_at' => now()])->save();
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect(UasFlightTrack::query()->count())->toBe(0);
+});
+
+it('requires confirmation and rejects a changed aircraft or pilot after staging', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, []))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    $mission->update(['uas_pilot_id' => postFlightPropagationPilot()->id]);
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+});
+
+it('rejects wrong aircraft identity and missions that are still in planning', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $csv = str_replace($mission->aircraft->serial_number, 'WRONG-SERIAL', telemetryCsvForMission($mission));
+    expect(fn () => $action->stage($mission, $user, $csv))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    $mission->update(['lifecycle_state' => MissionLifecycleState::Planning]);
+    expect(fn () => $action->stage($mission, $user, telemetryCsvForMission($mission)))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+});
+
+it('enforces operator isolation and read-only membership on telemetry endpoints', function () {
+    $mission = postFlightPropagationMission();
+    $foreign = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    Sanctum::actingAs($user);
+    $this->getJson("/api/v1/missions/{$foreign->id}/telemetry-imports")->assertNotFound();
+    $reader = postFlightPropagationUser(['missions.view']);
+    postFlightAuthorize($reader, $mission, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    Sanctum::actingAs($reader);
+    $this->postJson("/api/v1/missions/{$mission->id}/telemetry-imports")->assertForbidden();
+});

@@ -49,6 +49,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('missions/{mission}/release', [MissionController::class, 'release'])->name('missions.release');
         Route::get('missions/{mission}/post-flight-propagation', [MissionController::class, 'postFlightPropagation'])->name('missions.post-flight-propagation.show');
         Route::post('missions/{mission}/post-flight-propagation', [MissionController::class, 'propagatePostFlight'])->name('missions.post-flight-propagation.store');
+        Route::get('missions/{mission}/telemetry-imports', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'index'])->name('missions.telemetry.index');
+        Route::post('missions/{mission}/telemetry-imports', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'store'])->middleware('throttle:20,1')->name('missions.telemetry.store');
+        Route::post('missions/{mission}/telemetry-imports/{import}/accept', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'accept'])->name('missions.telemetry.accept');
         Route::get('missions/{mission}', [MissionController::class, 'show'])->name('missions.show');
     });
 });
+

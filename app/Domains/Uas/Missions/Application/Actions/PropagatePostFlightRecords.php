@@ -21,7 +21,8 @@ class PropagatePostFlightRecords
     public function execute(UasMission $mission, User $actor, array $closureData = [], ?string $ipAddress = null, ?string $userAgent = null): array
     {
         return DB::transaction(function () use ($mission, $actor, $closureData, $ipAddress, $userAgent): array {
-            $mission->refresh()->loadMissing(['aircraft', 'pilot', 'batteryUsages.battery', 'flightTracks', 'defects']);
+            $mission = UasMission::query()->lockForUpdate()->findOrFail($mission->id);
+            $mission->loadMissing(['aircraft', 'pilot', 'batteryUsages.battery', 'flightTracks', 'defects']);
 
             if ($mission->post_flight_propagated_at && filled($mission->post_flight_propagation_results)) {
                 return $mission->post_flight_propagation_results;
@@ -182,9 +183,8 @@ class PropagatePostFlightRecords
             ? Carbon::parse($closureData['actual_landing_at'])
             : $mission->actual_landing_at;
 
-        if (! $takeoff && ! $landing && $mission->planned_start_at && $mission->planned_end_at) {
-            $takeoff = $mission->planned_start_at;
-            $landing = $mission->planned_end_at;
+        if (! $takeoff || ! $landing || ! $landing->greaterThan($takeoff)) {
+            throw ValidationException::withMessages(['actual_takeoff_at' => 'Actual takeoff and landing times in chronological order are required. Planned times cannot be used as actual flight evidence.']);
         }
 
         if ($takeoff && $landing) {
@@ -267,3 +267,4 @@ class PropagatePostFlightRecords
             ->implode("\n");
     }
 }
+

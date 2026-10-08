@@ -10,11 +10,11 @@ This is source inspection, not a production acceptance audit.
 | Post-flight propagation | PropagatePostFlightRecords, MissionPostFlightPropagationTest | Pilot logbook, aircraft folio, battery summaries and audit exist. Planned-time fallback was unsafe and is removed in this change. Mission-row locking added for concurrent close-out. |
 | Flight tracks | RecordFlightTrack, FlightTrackSummariser, Phase2FlightTrackTest | Normalised tracks, distance and altitude summaries exist. No native DJI/Autel adapter established. |
 | Fleet readiness | AircraftReadinessSummary | Catalogue, serviceability, registration, approvals, defects and battery checks exist. No scheduled maintenance check in this query. |
-| Scheduled/component maintenance | FR-MNT-001/002/003 in docs/02-functional-domains/maintenance-and-assets.md | No maintenance domain implementation located in the inspected tree. Build schedules, counters, component history, work records and authorised return to service. |
+| Scheduled/component maintenance | FR-MNT-001/002/003 in docs/02-functional-domains/maintenance-and-assets.md | UasAircraftComponent already stores life limits, accumulated hours/cycles and maintenance baselines. No scheduled maintenance domain was located; component-counter automation and due/release integration still need implementation and verification. |
 | Operator isolation | CurrentOperatorContext, MissionPolicy, tenant isolation tests | Existing operator membership and context controls reused by telemetry API. Production isolation acceptance remains necessary. |
 | Aeronautical information | AeronauticalInformation domain and provider/briefing/release queries | Integration code exists. Authoritative provider access and operational freshness need separate acceptance; code presence does not establish live availability. |
 | Regulatory/training | Regulatory, Training and related tests/pages in backend | Earlier competitor comparison understated training implementation. Courses and compliance links exist; complete ATO enrolment, instructor assessment and portable record journey are not established by this inspection. |
-| Mobile | Aircraft, missions and briefing repositories/screens; operator and token stores | Existing API workspaces. No durable offline execution queue or conflict-resolution engine located. Images/icons named offline or sync are not implementations. |
+| Mobile | Aircraft, missions and briefing repositories/screens; operator and token stores | Existing API workspaces. No durable offline execution queue or conflict-resolution engine located. Mobile MissionRepository.releaseMission currently throws an unsupported-route exception even though the backend release endpoint exists; reconcile the contract and permission/UI intent before enabling it. Images/icons named offline or sync are not implementations. |
 
 Baseline GitHub Actions run 37426044490 on backend main: 46 failed, 364 passed, 2,488 assertions.
 Failures report missing Inertia page components although those files exist under resources/js/pages.
@@ -87,7 +87,7 @@ Use a development database for initial migration and acceptance.
 
 1. Add web/mobile upload, review and acceptance UI using existing mission workspace and logo assets.
 2. Validate manufacturer adapters against real DJI/Autel samples, identifying explicit flight boundaries, serials, parser versions and ambiguous data.
-3. Maintenance: derive aircraft hours/cycles from accepted folios with defined baseline counters; add component/schedule/work-release records and date/hour/cycle due checks to mission release.
+3. Maintenance: derive aircraft hours/cycles from accepted folios with defined baseline counters; extend existing component records with schedule/work-release records and date/hour/cycle due checks to mission release.
 4. Offline Flutter: durable assigned-mission cache, local evidence/outbox, idempotency keys, operator-bound queues and conflict handling.
 5. Operational compliance demonstration with authoritative aeronautical data and versioned requirements.
 

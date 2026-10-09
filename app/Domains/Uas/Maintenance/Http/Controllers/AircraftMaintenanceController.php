@@ -43,13 +43,25 @@ class AircraftMaintenanceController extends Controller
             'requirement_source' => ['required', 'string', 'max:2000'],
             'uas_aircraft_component_id' => ['nullable', 'integer'],
             'due_at' => ['nullable', 'date_format:Y-m-d'],
-            'due_hours' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'due_hours' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
             'due_cycles' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'interval_days' => ['nullable', 'integer', 'min:1', 'max:36500'],
+            'interval_hours' => ['nullable', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
+            'interval_cycles' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
         ]);
         $task = DB::transaction(function () use ($data, $aircraft, $operator, $request) {
             UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
             if (($data['due_at'] ?? null) === null && ($data['due_hours'] ?? null) === null && ($data['due_cycles'] ?? null) === null) {
                 throw ValidationException::withMessages(['due_at' => 'At least one maintenance threshold is required.']);
+            }
+            $recurring = ($data['interval_days'] ?? null) !== null
+                || ($data['interval_hours'] ?? null) !== null || ($data['interval_cycles'] ?? null) !== null;
+            if ($recurring) {
+                foreach (['due_at' => 'interval_days', 'due_hours' => 'interval_hours', 'due_cycles' => 'interval_cycles'] as $threshold => $interval) {
+                    if ((($data[$threshold] ?? null) !== null) !== (($data[$interval] ?? null) !== null)) {
+                        throw ValidationException::withMessages([$interval => 'Every recurring threshold requires its matching interval and initial due value.']);
+                    }
+                }
             }
             if (($data['uas_aircraft_component_id'] ?? null) !== null) {
                 if (! $aircraft->components()->whereKey($data['uas_aircraft_component_id'])->where('status', 'active')->exists()) {
@@ -86,11 +98,17 @@ class AircraftMaintenanceController extends Controller
             if ($task->completed_at === null) {
                 $task->forceFill(['completed_at' => now(), 'completed_by' => $request->user()->id,
                     'completion_evidence' => $data])->save();
+                $next = app(\App\Domains\Uas\Maintenance\Application\Actions\GenerateNextMaintenanceTask::class)
+                    ->execute($task, $request->user()->id);
+                if ($next) {
+                    $this->audit($request, $next, 'maintenance.successor_scheduled');
+                }
                 $this->audit($request, $task, 'maintenance.completed');
             }
             return $task;
         });
-        return $request->expectsJson() ? ApiResponse::success(['task' => $task], 'Maintenance completion recorded.')
+        return $request->expectsJson() ? ApiResponse::success(['task' => $task,
+            'next_task' => MaintenanceTask::query()->where('previous_task_id', $task->id)->first()], 'Maintenance completion recorded.')
             : redirect()->route('aircraft.maintenance.index', $aircraft);
     }
 

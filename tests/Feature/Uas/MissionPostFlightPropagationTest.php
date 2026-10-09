@@ -392,6 +392,102 @@ function maintenanceComponent(UasMission $mission, array $overrides = [])
     ], $overrides));
 }
 
+function recurringCompletionEvidence(): array
+{
+    return ['work_performed' => 'Scheduled inspection completed', 'technician' => 'Programme technician',
+        'parts_components' => 'Inspected installed motor', 'evidence_reference' => 'Vault inspection 456',
+        'certification' => 'Programme certification 456', 'completion_confirmed' => true];
+}
+
+it('rejects missing or non-positive recurring interval pairs without scheduling evidence', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $component = maintenanceComponent($mission);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $base = ['title' => 'Inspection', 'requirement_source' => 'Programme v2', 'due_at' => today()->toDateString()];
+    foreach ([
+        ['interval_days' => 0], ['interval_days' => -1], ['interval_days' => 1.5],
+        ['interval_hours' => 1], ['interval_cycles' => 1],
+        ['interval_days' => 30, 'due_hours' => 10, 'uas_aircraft_component_id' => $component->id],
+        ['interval_days' => 30, 'due_hours' => 10, 'interval_hours' => 0.001, 'uas_aircraft_component_id' => $component->id],
+    ] as $overrides) {
+        $this->postJson($url, [...$base, ...$overrides])->assertUnprocessable();
+    }
+    expect(\App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->count())->toBe(0)
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.scheduled')->count())->toBe(0);
+});
+
+it('rolls back completion and evidence when its recurring successor exceeds allowed totals', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $component = maintenanceComponent($mission);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $id = $this->postJson($url, [
+        'title' => 'Large interval', 'requirement_source' => 'Programme v2',
+        'uas_aircraft_component_id' => $component->id, 'due_cycles' => 4294967295, 'interval_cycles' => 1,
+    ])->assertCreated()->json('data.task.id');
+    $this->postJson($url."/{$id}/complete", recurringCompletionEvidence())->assertUnprocessable();
+    $task = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->findOrFail($id);
+    expect($task->completed_at)->toBeNull()->and($task->completion_evidence)->toBeNull()
+        ->and(\App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->count())->toBe(1)
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.completed')->count())->toBe(0);
+});
+
+it('creates a future calendar successor through the web workflow and preserves tenant ownership', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $this->actingAs($user)->withSession(['yaw_operator_id' => $mission->uas_operator_id]);
+    $url = "/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $this->post($url, ['title' => 'Monthly inspection', 'requirement_source' => 'Programme v2',
+        'due_at' => today()->toDateString(), 'interval_days' => 30])->assertRedirect($url);
+    $task = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->firstOrFail();
+    $this->post($url."/{$task->id}/complete", recurringCompletionEvidence())->assertRedirect($url);
+    $this->get($url)->assertInertia(fn ($page) => $page->has('tasks.data', 2)
+        ->where('tasks.data.0.previous_task_id', $task->id)->where('tasks.data.0.due_state.status', 'scheduled')
+        ->where('tasks.data.0.due_state.remaining_days', 30)->where('summary.status', 'green'));
+    $next = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->where('previous_task_id', $task->id)->firstOrFail();
+    expect($next->uas_operator_id)->toBe($mission->uas_operator_id)
+        ->and($next->uas_aircraft_id)->toBe($mission->uas_aircraft_id);
+});
+
+it('generates exactly one source-linked recurring successor without extending missed thresholds', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $component = maintenanceComponent($mission, ['accumulated_hours' => 2, 'accumulated_cycles' => 35, 'life_limit_cycles' => 100]);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $id = $this->postJson($url, [
+        'title' => 'Recurring motor inspection', 'requirement_source' => 'Programme v2 section 5',
+        'uas_aircraft_component_id' => $component->id, 'due_at' => today()->subDays(40)->toDateString(),
+        'due_hours' => 1.25, 'due_cycles' => 20, 'interval_days' => 30, 'interval_hours' => 0.25, 'interval_cycles' => 10,
+    ])->assertCreated()->json('data.task.id');
+    $nextId = $this->postJson($url."/{$id}/complete", recurringCompletionEvidence())
+        ->assertOk()->assertJsonPath('data.next_task.previous_task_id', $id)
+        ->assertJsonPath('data.next_task.due_hours', '1.50')
+        ->assertJsonPath('data.next_task.due_cycles', 30)
+        ->assertJsonPath('data.next_task.interval_cycles', 10)->json('data.next_task.id');
+    $this->postJson($url."/{$id}/complete", [...recurringCompletionEvidence(), 'work_performed' => 'Overwrite'])
+        ->assertOk()->assertJsonPath('data.next_task.id', $nextId)
+        ->assertJsonPath('data.task.completion_evidence.work_performed', 'Scheduled inspection completed');
+    $tasks = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query();
+    expect($tasks->count())->toBe(2)
+        ->and($tasks->find($nextId)->due_at->toDateString())->toBe(today()->subDays(10)->toDateString())
+        ->and($tasks->find($nextId)->requirement_source)->toBe('Programme v2 section 5')
+        ->and($tasks->find($nextId)->completed_at)->toBeNull()
+        ->and($tasks->find($nextId)->completion_evidence)->toBeNull()
+        ->and((float) $component->fresh()->accumulated_hours)->toBe(2.0)
+        ->and($component->fresh()->accumulated_cycles)->toBe(35)
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.successor_scheduled')->count())->toBe(1);
+    $this->getJson($url)->assertJsonPath('data.tasks.data.0.due_state.status', 'overdue')
+        ->assertJsonPath('data.summary.status', 'red');
+});
+
 it('carries reviewed telemetry into component usage and due maintenance without duplicate cycles', function () {
     $mission = postFlightPropagationMission();
     $user = postFlightPropagationUser();

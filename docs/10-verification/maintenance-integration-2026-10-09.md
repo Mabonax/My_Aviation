@@ -18,7 +18,7 @@
 - Current component installation state is not a historical installation/removal ledger. Historical flights skip components installed later or currently retired/removed.
 - One mission represents one takeoff/landing cycle in this milestone.
 - No manufacturer baseline is automatically interpreted as an approved maintenance interval. Managers must configure source-backed thresholds.
-- Recurring task generation, work orders, replacement/removal workflows, dedicated technician authority, battery maintenance intervals and formal return-to-service certification remain future work.
+- Work orders, replacement/removal workflows, dedicated technician authority, battery maintenance intervals and formal return-to-service certification remain future work.
 - Task completion records a manager's supporting references; it does not verify the technician's credentials with an external authority.
 - No native DJI/Autel parser or Flutter maintenance UI is included.
 
@@ -27,3 +27,13 @@
 Regression coverage includes telemetry-to-usage-to-due-task propagation, duplicate acceptance, blocked-checklist rollback, installed component eligibility, equality limits, stale relations, dates, threshold validation, shared-aircraft tenancy, immutable completion and release rechecking a previously green gate.
 
 PHP is unavailable in the editing environment. GitHub Actions validation is required; browser acceptance and MySQL concurrency testing remain outstanding.
+
+## Recurring programme follow-up
+
+Tasks may configure positive repeat intervals in days, component hours and flight cycles. Every configured due threshold on a recurring task needs its matching interval. Tasks with no repeat intervals remain single tasks.
+
+Completion creates one successor in the same transaction as immutable completion evidence. A unique previous-task link plus parent and aircraft locks prevent duplicate successors. Programme source, ownership and component identity carry forward; completed evidence does not.
+
+Thresholds advance from the previous due values rather than completion date or current usage. Late completion does not extend the programme or skip overdue intervals. This fixed programme model must be used only when it matches the applicable operator/manufacturer programme. Floating point drift is avoided by calculating hour thresholds in hundredths.
+
+The next task participates in the existing readiness controls immediately. Component life totals and limits remain unchanged. Storage overflow rolls back the entire completion transaction. This milestone does not add interval editing, cancellation, schedule rebaselining or calendar-month intervals.

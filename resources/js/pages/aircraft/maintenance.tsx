@@ -7,12 +7,12 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
 
 type Component = { id: number; name: string; status: string; installed_at: string | null; accumulated_hours: string; accumulated_cycles: number; life_limit_hours: string | null; life_limit_cycles: number | null };
-type Task = { id: number; title: string; requirement_source: string; due_at: string | null; due_hours: string | null; due_cycles: number | null; uas_aircraft_component_id: number | null; completed_at: string | null; completion_evidence: Record<string, string> | null; due_state: { status: string; remaining_days: number | null; remaining_hours: number | null; remaining_cycles: number | null } };
+type Task = { id: number; title: string; requirement_source: string; due_at: string | null; due_hours: string | null; due_cycles: number | null; interval_days: number | null; interval_hours: string | null; interval_cycles: number | null; previous_task_id: number | null; uas_aircraft_component_id: number | null; completed_at: string | null; completion_evidence: Record<string, string> | null; due_state: { status: string; remaining_days: number | null; remaining_hours: number | null; remaining_cycles: number | null } };
 type Props = { aircraft: { id: number; registration: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean };
 
 export default function Maintenance({ aircraft, components, tasks, summary, can_manage }: Props) {
     const base = `/aircraft/${aircraft.id}/maintenance`;
-    const form = useForm({ title: '', requirement_source: '', uas_aircraft_component_id: '', due_at: '', due_hours: '', due_cycles: '' });
+    const form = useForm({ title: '', requirement_source: '', uas_aircraft_component_id: '', due_at: '', due_hours: '', due_cycles: '', interval_days: '', interval_hours: '', interval_cycles: '' });
     function schedule(event: FormEvent) {
         event.preventDefault();
         form.post(base, { preserveScroll: true, onSuccess: () => form.reset() });
@@ -57,6 +57,15 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
                             <label className="text-sm">Due at component cycles<Input type="number" min="0" step="1" disabled={form.processing} value={form.data.due_cycles} onChange={(event) => form.setData('due_cycles', event.target.value)} /></label>
                         </div>
                         <p className="text-sm text-muted-foreground">Enter at least one threshold. The first threshold reached blocks mission release until completion is recorded.</p>
+                        <fieldset className="rounded-lg border p-3">
+                            <legend className="px-1 text-sm font-medium">Repeat intervals (optional)</legend>
+                            <p className="mb-3 text-sm text-muted-foreground">Leave all intervals empty for a single task. For recurring tasks, enter an interval for each configured threshold. The next task advances from the previous due thresholds; late completion does not extend the programme or skip missed intervals.</p>
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <label className="text-sm">Every days<Input type="number" min="1" step="1" disabled={form.processing} value={form.data.interval_days} onChange={(event) => form.setData('interval_days', event.target.value)} /></label>
+                                <label className="text-sm">Every component hours<Input type="number" min="0.01" step="0.01" disabled={form.processing} value={form.data.interval_hours} onChange={(event) => form.setData('interval_hours', event.target.value)} /></label>
+                                <label className="text-sm">Every flight cycles<Input type="number" min="1" step="1" disabled={form.processing} value={form.data.interval_cycles} onChange={(event) => form.setData('interval_cycles', event.target.value)} /></label>
+                            </div>
+                        </fieldset>
                         <div role="alert">{Object.entries(form.errors).map(([key, message]) => <InputError key={key} message={message} />)}</div>
                         <Button type="submit" disabled={form.processing}>{form.processing ? 'Scheduling…' : 'Schedule task'}</Button>
                     </form>
@@ -82,13 +91,15 @@ function TaskCard({ task, base, canManage, components }: { task: Task; base: str
     return <article className="rounded-xl border p-5">
         <h3 className="font-semibold">{task.title} · {task.due_state.status.replaceAll('_', ' ')}</h3>
         <p className="mt-2 text-sm">Requirement: {task.requirement_source}</p>
+        {task.previous_task_id && <p className="mt-2 text-sm">Programme history: follows completed task #{task.previous_task_id}.</p>}
+        {(task.interval_days !== null || task.interval_hours !== null || task.interval_cycles !== null) && <p className="mt-2 text-sm">Repeats every: {task.interval_days !== null ? `${task.interval_days} days; ` : ''}{task.interval_hours !== null ? `${task.interval_hours} hours; ` : ''}{task.interval_cycles !== null ? `${task.interval_cycles} flight cycles` : ''}</p>}
         {component && <p className="text-sm">Component: {component.name}</p>}
         <p className="mt-2 text-sm">Thresholds: {task.due_at ? `date ${task.due_at.slice(0, 10)}; ` : ''}{task.due_hours !== null ? `${task.due_hours} hours; ` : ''}{task.due_cycles !== null ? `${task.due_cycles} cycles` : ''}</p>
         {!task.completed_at && <p className="mt-2 text-sm">Remaining: {task.due_state.remaining_days !== null ? `${task.due_state.remaining_days} days; ` : ''}{task.due_state.remaining_hours !== null ? `${task.due_state.remaining_hours} hours; ` : ''}{task.due_state.remaining_cycles !== null ? `${task.due_state.remaining_cycles} cycles` : ''}</p>}
         {task.completed_at ? <details className="mt-3 text-sm"><summary>Completion evidence · {task.completed_at}</summary>{Object.entries(task.completion_evidence ?? {}).filter(([key]) => key !== 'completion_confirmed').map(([key, value]) => <p key={key} className="mt-2 break-words">{key.replaceAll('_', ' ')}: {String(value)}</p>)}</details> : canManage && <form onSubmit={complete} className="mt-4 flex flex-col gap-3">
             {(['work_performed', 'technician', 'parts_components', 'evidence_reference', 'certification'] as const).map((key) => <label key={key} className="text-sm">{key.replaceAll('_', ' ')}<Input required maxLength={key === 'technician' ? 180 : 2000} disabled={form.processing} value={form.data[key]} onChange={(event) => form.setData(key, event.target.value)} /></label>)}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.completion_confirmed} disabled={form.processing} onChange={(event) => form.setData('completion_confirmed', event.target.checked)} />I confirm this task is complete and the supporting evidence is recorded.</label>
-            <p className="text-sm text-muted-foreground">Completion closes this obligation. Component life limits, defects and other release controls remain applicable. Create a new task for the next programme interval.</p>
+            <p className="text-sm text-muted-foreground">Completion closes this obligation and creates the next task when repeat intervals are configured. Component life limits, defects and other release controls remain applicable.</p>
             <div role="alert">{Object.entries(form.errors).map(([key, message]) => <InputError key={key} message={message} />)}</div>
             <Button type="submit" disabled={form.processing || !form.data.completion_confirmed}>{form.processing ? 'Recording…' : 'Record completion'}</Button>
         </form>}

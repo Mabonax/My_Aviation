@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Domains\Uas\Maintenance\Http\Controllers;
+
+use App\Domains\Uas\Aircraft\Domain\Models\UasAircraft;
+use App\Domains\Uas\Api\Application\ApiResponse;
+use App\Domains\Uas\Maintenance\Application\Queries\AircraftMaintenanceSummary;
+use App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask;
+use App\Domains\Uas\Operators\Application\Queries\CurrentOperatorContext;
+use App\Domains\Uas\Records\Application\Actions\RecordAuditEntry;
+use App\Domains\Uas\Records\Application\DTOs\AuditEntryData;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+
+class AircraftMaintenanceController extends Controller
+{
+    public function index(Request $request, UasAircraft $aircraft, CurrentOperatorContext $context)
+    {
+        $operator = $this->authorizeAircraft($request, $aircraft, $context);
+        $props = [
+            'aircraft' => ['id' => $aircraft->id, 'registration' => $aircraft->registration],
+            'components' => $aircraft->components()->get(['id', 'name', 'status', 'installed_at',
+                'accumulated_hours', 'accumulated_cycles', 'life_limit_hours', 'life_limit_cycles']),
+            'tasks' => MaintenanceTask::query()->where('uas_aircraft_id', $aircraft->id)
+                ->where('uas_operator_id', $operator->id)->latest('id')->paginate(20)->withQueryString()
+                ->through(fn ($task) => [...$task->toArray(), 'due_state' => app(AircraftMaintenanceSummary::class)
+                    ->taskState($task, $aircraft->components->firstWhere('id', $task->uas_aircraft_component_id))]),
+            'summary' => app(AircraftMaintenanceSummary::class)->execute($aircraft),
+            'can_manage' => $context->canManageOperator($request->user(), $operator) && Gate::allows('update', $aircraft),
+        ];
+        return $request->expectsJson() ? ApiResponse::success($props) : Inertia::render('aircraft/maintenance', $props);
+    }
+
+    public function store(Request $request, UasAircraft $aircraft, CurrentOperatorContext $context)
+    {
+        $operator = $this->authorizeAircraft($request, $aircraft, $context, true);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:180'],
+            'requirement_source' => ['required', 'string', 'max:2000'],
+            'uas_aircraft_component_id' => ['nullable', 'integer'],
+            'due_at' => ['nullable', 'date_format:Y-m-d'],
+            'due_hours' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'due_cycles' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+        ]);
+        $task = DB::transaction(function () use ($data, $aircraft, $operator, $request) {
+            UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
+            if (($data['due_at'] ?? null) === null && ($data['due_hours'] ?? null) === null && ($data['due_cycles'] ?? null) === null) {
+                throw ValidationException::withMessages(['due_at' => 'At least one maintenance threshold is required.']);
+            }
+            if (($data['uas_aircraft_component_id'] ?? null) !== null) {
+                if (! $aircraft->components()->whereKey($data['uas_aircraft_component_id'])->where('status', 'active')->exists()) {
+                    throw ValidationException::withMessages(['uas_aircraft_component_id' => 'Select an active component belonging to this aircraft.']);
+                }
+            } elseif (($data['due_hours'] ?? null) !== null || ($data['due_cycles'] ?? null) !== null) {
+                throw ValidationException::withMessages(['uas_aircraft_component_id' => 'Hours and cycle thresholds require a tracked component.']);
+            }
+            $task = MaintenanceTask::query()->create([...$data,
+                'uas_operator_id' => $operator->id, 'uas_aircraft_id' => $aircraft->id, 'created_by' => $request->user()->id]);
+            $this->audit($request, $task, 'maintenance.scheduled');
+            return $task;
+        });
+        return $request->expectsJson() ? ApiResponse::success(['task' => $task], 'Maintenance task scheduled.', 201)
+            : redirect()->route('aircraft.maintenance.index', $aircraft);
+    }
+
+    public function complete(Request $request, UasAircraft $aircraft, MaintenanceTask $task, CurrentOperatorContext $context)
+    {
+        $operator = $this->authorizeAircraft($request, $aircraft, $context, true);
+        abort_unless((int) $task->uas_aircraft_id === (int) $aircraft->id
+            && (int) $task->uas_operator_id === (int) $operator->id, 404);
+        $data = $request->validate([
+            'work_performed' => ['required', 'string', 'max:2000'],
+            'technician' => ['required', 'string', 'max:180'],
+            'parts_components' => ['required', 'string', 'max:2000'],
+            'evidence_reference' => ['required', 'string', 'max:2000'],
+            'certification' => ['required', 'string', 'max:2000'],
+            'completion_confirmed' => ['required', 'accepted'],
+        ]);
+        $task = DB::transaction(function () use ($task, $aircraft, $request, $data) {
+            UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
+            $task = MaintenanceTask::query()->lockForUpdate()->findOrFail($task->id);
+            if ($task->completed_at === null) {
+                $task->forceFill(['completed_at' => now(), 'completed_by' => $request->user()->id,
+                    'completion_evidence' => $data])->save();
+                $this->audit($request, $task, 'maintenance.completed');
+            }
+            return $task;
+        });
+        return $request->expectsJson() ? ApiResponse::success(['task' => $task], 'Maintenance completion recorded.')
+            : redirect()->route('aircraft.maintenance.index', $aircraft);
+    }
+
+    private function authorizeAircraft(Request $request, UasAircraft $aircraft, CurrentOperatorContext $context, bool $manage = false)
+    {
+        $operator = $context->requireFromRequest($request);
+        abort_unless($operator->aircraft()->whereKey($aircraft->id)->wherePivot('status', 'active')->exists(), 404);
+        Gate::authorize($manage ? 'update' : 'view', $aircraft);
+        if ($manage) {
+            abort_unless($context->canManageOperator($request->user(), $operator), 403);
+        }
+        return $operator;
+    }
+
+    private function audit(Request $request, MaintenanceTask $task, string $action): void
+    {
+        app(RecordAuditEntry::class)->execute(new AuditEntryData(
+            actor: $request->user(), auditable: $task, action: $action,
+            requirementId: 'FR-MNT-001/FR-MNT-003', regulatorySource: $task->requirement_source,
+            previousValues: null, newValues: $task->toArray(), operatorId: $task->uas_operator_id,
+            operatorContextSource: 'maintenance_workspace',
+        ));
+    }
+}

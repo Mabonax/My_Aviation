@@ -329,6 +329,27 @@ it('returns green mission readiness when all release controls are satisfied', fu
         ->and($summary['controls'])->toHaveCount(9);
 });
 
+it('rechecks maintenance at release even when a stored mission gate was previously green', function () {
+    $mission = missionComplianceMission();
+    missionComplianceRecordChecklist($mission);
+    $user = missionComplianceUser(['missions.view', 'missions.update']);
+    missionComplianceAuthorizeUserForMission($user, $mission);
+    missionComplianceRefreshStoredGate($mission);
+    expect($mission->release_gate_state)->toBe('green');
+    \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->create([
+        'uas_operator_id' => $mission->uas_operator_id, 'uas_aircraft_id' => $mission->uas_aircraft_id,
+        'title' => 'Mandatory inspection', 'requirement_source' => 'Operator programme v1',
+        'due_at' => today(), 'created_by' => $user->id,
+    ]);
+    Sanctum::actingAs($user);
+    $this->postJson("/api/v1/missions/{$mission->id}/release")->assertUnprocessable();
+    expect($mission->fresh()->lifecycle_state)->toBe(MissionLifecycleState::Approved)
+        ->and(UasAuditEntry::query()->where('action', 'mission.released')->count())->toBe(0);
+    $summary = app(MissionComplianceSummary::class)->execute($mission->fresh());
+    expect($summary['status'])->toBe('red')
+        ->and(collect($summary['controls'])->firstWhere('key', 'aircraft_readiness')['blocking'])->toBeTrue();
+});
+
 it('propagates red and amber aircraft readiness into mission compliance', function () {
     $redAircraft = missionComplianceAircraft(['operational_status' => 'grounded']);
     $redMission = missionComplianceMission(['aircraft' => $redAircraft]);
@@ -521,3 +542,4 @@ it('blocks mission readiness when the pilots underlying operator membership is s
     expect($summary['status'])->toBe('red')
         ->and($control['blocking'])->toBeTrue();
 });
+

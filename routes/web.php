@@ -131,6 +131,9 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('batteries', BatteryController::class)->only(['index', 'create', 'store']);
     Route::resource('aircraft-catalogue', AircraftCatalogueController::class)->only(['index', 'show'])->parameters(['aircraft-catalogue' => 'aircraftModel']);
     Route::resource('aircraft', AircraftController::class)->only(['index', 'create', 'store', 'show']);
+    Route::get('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'index'])->name('aircraft.maintenance.index');
+    Route::post('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'store'])->name('aircraft.maintenance.store');
+    Route::post('aircraft/{aircraft}/maintenance/{task}/complete', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'complete'])->name('aircraft.maintenance.complete');
     Route::resource('evidence-documents', EvidenceDocumentController::class)->only(['index', 'store']);
     Route::resource('defects', AircraftDefectController::class)->only(['index', 'create', 'store']);
     Route::resource('missions', MissionController::class)->only(['index', 'create', 'store', 'show']);

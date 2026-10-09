@@ -36,6 +36,7 @@ class AircraftReadinessSummary
             $this->approvalCheck($aircraft),
             $this->defectCheck($aircraft),
             $this->batteryCheck($aircraft),
+            $this->maintenanceCheck($aircraft),
         ];
 
         $status = collect($checks)->contains(fn (array $check): bool => $check['status'] === 'red')
@@ -81,6 +82,15 @@ class AircraftReadinessSummary
                 'verified_at' => $aircraft->catalogueModel->verified_at?->toDateString(),
             ],
         );
+    }
+
+    private function maintenanceCheck(UasAircraft $aircraft): array
+    {
+        $summary = app(\App\Domains\Uas\Maintenance\Application\Queries\AircraftMaintenanceSummary::class)->execute($aircraft);
+        return $this->check('maintenance', 'Maintenance and component limits', $summary['status'],
+            implode(' ', $summary['blocking_reasons'] ?: $summary['review_reasons'])
+                ?: 'No due maintenance tasks or reached life limits among configured records.',
+            $summary);
     }
 
     private function serviceabilityCheck(UasAircraft $aircraft): array
@@ -270,3 +280,4 @@ class AircraftReadinessSummary
         ];
     }
 }
+

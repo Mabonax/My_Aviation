@@ -38,6 +38,8 @@ class PropagatePostFlightRecords
             $defects = $mission->defects;
             $tracks = $mission->flightTracks;
             $flightHours = $this->flightHours($mission);
+            $componentUsage = app(\App\Domains\Uas\Maintenance\Application\Actions\RecordComponentFlightUsage::class)
+                ->execute($mission, $flightHours);
             $completedAt = now();
             $evidence = [
                 'mission_id' => $mission->id,
@@ -116,6 +118,7 @@ class PropagatePostFlightRecords
                 'pilot_log_entry_id' => $pilotLog->id,
                 'aircraft_flight_folio_id' => $folio->id,
                 'battery_cycles_summarised' => $batteryUsages->sum('cycles_added'),
+                'component_usage' => $componentUsage,
                 'battery_usage_count' => $batteryUsages->count(),
                 'flight_track_count' => $tracks->count(),
                 'defect_count' => $defects->count(),
@@ -267,4 +270,5 @@ class PropagatePostFlightRecords
             ->implode("\n");
     }
 }
+
 

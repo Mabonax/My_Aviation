@@ -101,6 +101,7 @@ export default function Show({ aircraft }: { aircraft: Aircraft }) {
             <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
                 <PageHeader title={aircraft.registration} description={`${aircraft.manufacturer} ${aircraft.model}`} actions={aircraft.catalogue_model && <Button asChild><Link href={`/aircraft-catalogue/${aircraft.catalogue_model.id}`}>Catalogue</Link></Button>} />
                 <div className="grid gap-4 xl:grid-cols-2">
+                    <Button variant="outline" asChild><Link href={`/aircraft/${aircraft.id}/maintenance`}>Maintenance programme and component usage</Link></Button>
                     <Panel title="Readiness Summary">
                         <div className="flex items-start justify-between gap-3 rounded-md border p-3">
                             <div>
@@ -199,3 +200,4 @@ function ReadinessIcon({ status }: { status: AircraftReadiness['status'] }) {
 
     return <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />;
 }
+

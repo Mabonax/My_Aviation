@@ -38,6 +38,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('aircraft-catalogue/{aircraftModel}', [AircraftCatalogueController::class, 'show'])->name('aircraft-catalogue.show');
         Route::get('aircraft', [AircraftController::class, 'index'])->name('aircraft.index');
         Route::get('aircraft/{aircraft}', [AircraftController::class, 'show'])->name('aircraft.show');
+        Route::get('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'index'])->name('aircraft.maintenance.index');
+        Route::post('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'store'])->name('aircraft.maintenance.store');
+        Route::post('aircraft/{aircraft}/maintenance/{task}/complete', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'complete'])->name('aircraft.maintenance.complete');
         Route::get('evidence-documents', [EvidenceDocumentController::class, 'index'])->name('evidence-documents.index');
         Route::post('evidence-documents', [EvidenceDocumentController::class, 'store'])->name('evidence-documents.store');
         Route::get('defects', [TenantOperationalController::class, 'defects'])->name('defects.index');

@@ -381,6 +381,148 @@ function telemetryDeclarations(): array
         'occurrence_declared' => false, 'closure_notes' => 'Reviewed flight samples.'];
 }
 
+function maintenanceComponent(UasMission $mission, array $overrides = [])
+{
+    return \App\Domains\Uas\Aircraft\Domain\Models\UasAircraftComponent::query()->create(array_merge([
+        'uas_aircraft_id' => $mission->uas_aircraft_id,
+        'package_item_key' => 'motor-'.uniqid(), 'component_uid' => 'CMP-'.uniqid(),
+        'component_type' => 'motor', 'name' => 'Flight motor', 'status' => 'active',
+        'installed_at' => '2025-01-01', 'life_limit_hours' => 10, 'life_limit_cycles' => 10,
+        'accumulated_hours' => 0, 'accumulated_cycles' => 0,
+    ], $overrides));
+}
+
+it('carries reviewed telemetry into component usage and due maintenance without duplicate cycles', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $component = maintenanceComponent($mission);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $taskId = $this->postJson($url, [
+        'title' => 'Motor inspection', 'requirement_source' => 'Operator programme v1 section 4',
+        'uas_aircraft_component_id' => $component->id, 'due_cycles' => 1,
+    ])->assertCreated()->json('data.task.id');
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect((float) $component->fresh()->accumulated_hours)->toBe(0.0);
+    $action->accept($mission, $import, $user, telemetryDeclarations());
+    $action->accept($mission, $import, $user, telemetryDeclarations());
+    expect((float) $component->fresh()->accumulated_hours)->toBe(1.0)
+        ->and($component->fresh()->accumulated_cycles)->toBe(1)
+        ->and(\Illuminate\Support\Facades\DB::table('uas_component_flight_usage')->count())->toBe(1);
+    $this->getJson($url)->assertOk()->assertJsonPath('data.summary.status', 'red')
+        ->assertJsonPath('data.tasks.data.0.due_state.status', 'due')
+        ->assertJsonPath('data.tasks.data.0.due_state.remaining_cycles', 0);
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    expect(data_get($summary, 'controls.0.blocking'))->toBeTrue()
+        ->and(collect(data_get($summary, 'controls.0.details.aircraft_readiness.checks'))->firstWhere('code', 'maintenance')['status'])->toBe('red');
+    $completion = [
+        'work_performed' => 'Inspection complete', 'technician' => 'Authorised technician',
+        'parts_components' => 'No replacement parts', 'evidence_reference' => 'Vault inspection report 123',
+        'certification' => 'Operator maintenance certification 123', 'completion_confirmed' => true,
+    ];
+    $this->postJson($url."/{$taskId}/complete", $completion)->assertOk();
+    $this->postJson($url."/{$taskId}/complete", [...$completion, 'work_performed' => 'Overwrite attempt'])->assertOk();
+    $this->getJson($url)->assertJsonPath('data.summary.status', 'green')
+        ->assertJsonPath('data.tasks.data.0.completion_evidence.work_performed', 'Inspection complete');
+    expect((float) $component->fresh()->accumulated_hours)->toBe(1.0)
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.completed')->count())->toBe(1);
+});
+
+it('blocks component life limits at equality and cannot clear them by completing a task', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $component = maintenanceComponent($mission, ['life_limit_hours' => 1, 'life_limit_cycles' => 1]);
+    $aircraft = $mission->aircraft;
+    $aircraft->load('components'); // Deliberately stale relation before the new flight.
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $action->accept($mission, $action->stage($mission, $user, telemetryCsvForMission($mission)), $user, telemetryDeclarations());
+    expect(app(\App\Domains\Uas\Maintenance\Application\Queries\AircraftMaintenanceSummary::class)->execute($aircraft)['status'])->toBe('red');
+    $component->forceFill(['life_limit_hours' => 20, 'life_limit_cycles' => 1])->save();
+    expect(app(\App\Domains\Uas\Maintenance\Application\Queries\AircraftMaintenanceSummary::class)->execute($aircraft)['status'])->toBe('red');
+});
+
+it('rolls back component usage when post-flight acceptance is blocked', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission, 'blocked');
+    $component = maintenanceComponent($mission);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect((float) $component->fresh()->accumulated_hours)->toBe(0.0)
+        ->and($component->fresh()->accumulated_cycles)->toBe(0)
+        ->and(\Illuminate\Support\Facades\DB::table('uas_component_flight_usage')->count())->toBe(0);
+});
+
+it('does not assign historical flight usage to retired or subsequently installed components', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $retired = maintenanceComponent($mission, ['status' => 'retired']);
+    $later = maintenanceComponent($mission, ['installed_at' => '2026-02-01']);
+    $unknown = maintenanceComponent($mission, ['installed_at' => null]);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $action->accept($mission, $action->stage($mission, $user, telemetryCsvForMission($mission)), $user, telemetryDeclarations());
+    foreach ([$retired, $later, $unknown] as $component) {
+        expect($component->fresh()->accumulated_cycles)->toBe(0);
+    }
+    expect(app(\App\Domains\Uas\Maintenance\Application\Queries\AircraftMaintenanceSummary::class)->execute($mission->aircraft)['status'])->toBe('amber');
+});
+
+it('validates maintenance thresholds and enforces operator ownership on shared aircraft', function () {
+    $mission = postFlightPropagationMission();
+    $other = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $component = maintenanceComponent($mission);
+    $foreign = maintenanceComponent($other);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $data = ['title' => 'Inspection', 'requirement_source' => 'Approved operator programme v1'];
+    $this->postJson($url, $data)->assertUnprocessable()->assertJsonValidationErrors('due_at');
+    $this->postJson($url, [...$data, 'due_hours' => 1])->assertUnprocessable()->assertJsonValidationErrors('uas_aircraft_component_id');
+    $this->postJson($url, [...$data, 'due_cycles' => -1, 'uas_aircraft_component_id' => $component->id])->assertUnprocessable();
+    $this->postJson($url, [...$data, 'due_cycles' => 1, 'uas_aircraft_component_id' => $foreign->id])->assertUnprocessable();
+    $this->getJson("/api/v1/aircraft/{$other->uas_aircraft_id}/maintenance")->assertNotFound();
+    $taskId = $this->postJson($url, [...$data, 'due_at' => today()->toDateString()])->assertCreated()->json('data.task.id');
+    $this->getJson($url)->assertJsonPath('data.tasks.data.0.due_state.status', 'due');
+    $secondUser = postFlightPropagationUser();
+    postFlightAuthorize($secondUser, $other);
+    $other->operator->aircraft()->attach($mission->uas_aircraft_id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
+    Sanctum::actingAs($secondUser);
+    $this->getJson($url)->assertOk()->assertJsonCount(0, 'data.tasks.data')->assertJsonPath('data.summary.status', 'red');
+    $this->postJson($url."/{$taskId}/complete", [])->assertNotFound();
+    $reader = postFlightPropagationUser();
+    postFlightAuthorize($reader, $mission, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    Sanctum::actingAs($reader);
+    $this->getJson($url)->assertOk();
+    $this->postJson($url, [...$data, 'due_at' => today()->toDateString()])->assertForbidden();
+    $this->postJson($url."/{$taskId}/complete", [])->assertForbidden();
+});
+
+it('renders the maintenance web workspace and retains incomplete task evidence on validation failure', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $this->actingAs($user)->withSession(['yaw_operator_id' => $mission->uas_operator_id]);
+    $url = "/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $this->get($url)->assertInertia(fn ($page) => $page->component('aircraft/maintenance')->where('can_manage', true));
+    $this->post($url, ['title' => 'Calendar inspection', 'requirement_source' => 'Programme v1',
+        'due_at' => today()->subDay()->toDateString()])->assertRedirect($url);
+    $task = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->firstOrFail();
+    $this->get($url)->assertInertia(fn ($page) => $page->where('tasks.data.0.due_state.status', 'overdue'));
+    $this->from($url)->post($url."/{$task->id}/complete", [])->assertSessionHasErrors('completion_confirmed');
+    expect($task->fresh()->completed_at)->toBeNull();
+});
+
 it('reviews and accepts telemetry through the authenticated web workspace', function () {
     $mission = postFlightPropagationMission();
     $user = postFlightPropagationUser();

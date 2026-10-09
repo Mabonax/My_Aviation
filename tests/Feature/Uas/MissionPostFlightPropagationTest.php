@@ -505,6 +505,8 @@ it('blocks return to service when authority or aircraft controls are unresolved'
             'defect_number' => 'RTS-'.uniqid(), 'source' => 'maintenance', 'severity' => 'ground_aircraft',
             'status' => 'open', 'serviceability_impact' => 'grounded', 'title' => 'Unresolved defect',
             'description' => 'Inspection evidence requires rectification', 'reported_at' => now(),
+            'regulatory_source' => 'Operator inspection programme', 'regulatory_source_version' => 'v1',
+            'regulatory_effective_date' => '2026-01-01', 'regulatory_applicability' => 'Aircraft serviceability',
         ]);
     }
     $this->postJson($base."/{$repair}/return-to-service", ['evidence_reference' => 'Approval', 'release_notes' => 'Evidence', 'release_confirmed' => true])->assertStatus($expected);
@@ -646,6 +648,12 @@ it('enforces component ownership and keeps lifecycle evidence scoped on shared a
     $this->getJson($base.'/maintenance')->assertOk()
         ->assertJsonMissingPath('data.components.0.removal_evidence')
         ->assertJsonMissingPath('data.components.1.installation_evidence');
+    $this->postJson($base."/components/{$old->id}/replace", componentChangeEvidence())->assertForbidden();
+    \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->create([
+        'uas_operator_id' => $other->uas_operator_id, 'uas_aircraft_id' => $mission->uas_aircraft_id,
+        'user_id' => $manager->id, 'granted_by' => $manager->id,
+        'valid_until' => '2099-12-31', 'evidence_reference' => 'Shared aircraft certification fixture',
+    ]);
     $this->postJson($base."/components/{$old->id}/replace", componentChangeEvidence())
         ->assertOk()->assertJsonMissingPath('data.component.installation_evidence');
 });

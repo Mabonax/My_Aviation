@@ -109,6 +109,8 @@ class AircraftMaintenanceController extends Controller
         $operator = $this->authorizeAircraft($request, $aircraft, $context);
         abort_unless((int) $task->uas_aircraft_id === (int) $aircraft->id
             && (int) $task->uas_operator_id === (int) $operator->id, 404);
+        abort_unless(app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+            ->find($operator->id, $aircraft->id, $request->user()->id), 403);
         $data = $request->validate([
             'work_performed' => ['required', 'string', 'max:2000'],
             'technician' => ['required', 'string', 'max:180'],

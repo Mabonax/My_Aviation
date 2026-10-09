@@ -12,8 +12,25 @@ class RecordComponentFlightUsage
     public function execute(UasMission $mission, float $hours): array
     {
         UasAircraft::query()->lockForUpdate()->findOrFail($mission->uas_aircraft_id);
-        $components = $mission->aircraft->components()->where('status', 'active')
+        $history = $mission->aircraft->components()->get();
+        foreach ($history as $component) {
+            $replacement = $history->firstWhere('replaces_component_id', $component->id);
+            if (($component->installed_at && $component->installed_at->gt($mission->actual_takeoff_at)
+                    && $component->installed_at->lt($mission->actual_landing_at))
+                || ($component->removed_at && $component->removed_at->lt($mission->actual_landing_at)
+                    && (! $replacement || ! $replacement->installed_at || $replacement->installed_at->gt($mission->actual_takeoff_at)))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'mission' => 'The recorded flight overlaps a component change or an unfilled installation slot; review the flight evidence.',
+                ]);
+            }
+        }
+        $components = $mission->aircraft->components()->where(function ($query) {
+                $query->where('status', 'active')->orWhere(function ($query) {
+                    $query->whereIn('status', ['removed', 'awaiting_replacement'])->whereNotNull('removed_at');
+                });
+            })
             ->whereNotNull('installed_at')->where('installed_at', '<=', $mission->actual_takeoff_at)
+            ->where(fn ($query) => $query->whereNull('removed_at')->orWhere('removed_at', '>=', $mission->actual_landing_at))
             ->orderBy('id')->lockForUpdate()->get();
         $ids = [];
         foreach ($components as $component) {

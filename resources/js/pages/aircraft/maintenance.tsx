@@ -5,8 +5,9 @@ import { PageHeader } from '@/components/uas/page-header';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
+import ComponentLifecycleCard, { type TrackedComponent } from './component-lifecycle-card';
 
-type Component = { id: number; name: string; status: string; installed_at: string | null; accumulated_hours: string; accumulated_cycles: number; life_limit_hours: string | null; life_limit_cycles: number | null };
+type Component = TrackedComponent;
 type Task = { id: number; title: string; requirement_source: string; due_at: string | null; due_hours: string | null; due_cycles: number | null; interval_days: number | null; interval_hours: string | null; interval_cycles: number | null; previous_task_id: number | null; uas_aircraft_component_id: number | null; completed_at: string | null; completion_evidence: Record<string, string> | null; due_state: { status: string; remaining_days: number | null; remaining_hours: number | null; remaining_cycles: number | null } };
 type Props = { aircraft: { id: number; registration: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean };
 
@@ -32,12 +33,7 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
                     <p className="mt-2 text-sm text-muted-foreground">Recorded flights update active components installed before takeoff. Existing usage is retained; historical flights are not backfilled automatically.</p>
                     {components.length === 0 && <p className="mt-3 text-sm">No tracked components are configured.</p>}
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {components.map((component) => <div key={component.id} className="rounded-lg border p-3 text-sm">
-                            <h3 className="font-medium">{component.name} · {component.status}</h3>
-                            <p>Hours: {component.accumulated_hours} / {component.life_limit_hours ?? 'No configured limit'}</p>
-                            <p>Flight cycles: {component.accumulated_cycles} / {component.life_limit_cycles ?? 'No configured limit'}</p>
-                            {!component.installed_at && <p>Installation date required for automatic usage tracking.</p>}
-                        </div>)}
+                        {components.map((component) => <ComponentLifecycleCard key={component.id} component={component} aircraftId={aircraft.id} canManage={can_manage} />)}
                     </div>
                 </section>
                 {can_manage && <section className="rounded-xl border p-5">
@@ -82,7 +78,7 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
 }
 
 function TaskCard({ task, base, canManage, components }: { task: Task; base: string; canManage: boolean; components: Component[] }) {
-    const form = useForm({ work_performed: '', technician: '', parts_components: '', evidence_reference: '', certification: '', completion_confirmed: false });
+    const form = useForm({ work_performed: '', technician: '', parts_components: '', evidence_reference: '', certification: '', completion_confirmed: false, end_recurrence: false, end_recurrence_reason: '' });
     const component = components.find((item) => item.id === task.uas_aircraft_component_id);
     function complete(event: FormEvent) {
         event.preventDefault();
@@ -99,6 +95,10 @@ function TaskCard({ task, base, canManage, components }: { task: Task; base: str
         {task.completed_at ? <details className="mt-3 text-sm"><summary>Completion evidence · {task.completed_at}</summary>{Object.entries(task.completion_evidence ?? {}).filter(([key]) => key !== 'completion_confirmed').map(([key, value]) => <p key={key} className="mt-2 break-words">{key.replaceAll('_', ' ')}: {String(value)}</p>)}</details> : canManage && <form onSubmit={complete} className="mt-4 flex flex-col gap-3">
             {(['work_performed', 'technician', 'parts_components', 'evidence_reference', 'certification'] as const).map((key) => <label key={key} className="text-sm">{key.replaceAll('_', ' ')}<Input required maxLength={key === 'technician' ? 180 : 2000} disabled={form.processing} value={form.data[key]} onChange={(event) => form.setData(key, event.target.value)} /></label>)}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.completion_confirmed} disabled={form.processing} onChange={(event) => form.setData('completion_confirmed', event.target.checked)} />I confirm this task is complete and the supporting evidence is recorded.</label>
+            {component && ['removed', 'retired', 'awaiting_replacement'].includes(component.status) && (task.interval_days !== null || task.interval_hours !== null || task.interval_cycles !== null) && <>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.end_recurrence} disabled={form.processing} onChange={(event) => form.setData('end_recurrence', event.target.checked)} />End this removed component's recurring programme with this completion.</label>
+                {form.data.end_recurrence && <label className="text-sm">Programme closure reason<Input required maxLength={2000} disabled={form.processing} value={form.data.end_recurrence_reason} onChange={(event) => form.setData('end_recurrence_reason', event.target.value)} /></label>}
+            </>}
             <p className="text-sm text-muted-foreground">Completion closes this obligation and creates the next task when repeat intervals are configured. Component life limits, defects and other release controls remain applicable.</p>
             <div role="alert">{Object.entries(form.errors).map(([key, message]) => <InputError key={key} message={message} />)}</div>
             <Button type="submit" disabled={form.processing || !form.data.completion_confirmed}>{form.processing ? 'Recording…' : 'Record completion'}</Button>

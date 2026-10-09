@@ -10,6 +10,9 @@ class GenerateNextMaintenanceTask
     /** Runs inside completion's transaction with aircraft and parent task locked. */
     public function execute(MaintenanceTask $task, int $actorId): ?MaintenanceTask
     {
+        if ((bool) data_get($task->completion_evidence, 'end_recurrence', false)) {
+            return null;
+        }
         if ($task->interval_days === null && $task->interval_hours === null && $task->interval_cycles === null) {
             return null;
         }

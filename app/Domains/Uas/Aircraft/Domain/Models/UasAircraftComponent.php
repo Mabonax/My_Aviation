@@ -18,6 +18,11 @@ class UasAircraftComponent extends Model
         'model',
         'serial_number',
         'installed_at',
+        'removed_at',
+        'removed_by',
+        'removal_evidence',
+        'installation_evidence',
+        'replaces_component_id',
         'life_limit_hours',
         'life_limit_cycles',
         'accumulated_hours',
@@ -31,6 +36,9 @@ class UasAircraftComponent extends Model
     {
         return [
             'installed_at' => 'datetime',
+            'removed_at' => 'datetime',
+            'removal_evidence' => 'array',
+            'installation_evidence' => 'array',
             'life_limit_hours' => 'decimal:2',
             'accumulated_hours' => 'decimal:2',
             'maintenance_baseline' => 'array',
@@ -48,4 +56,5 @@ class UasAircraftComponent extends Model
         return $this->belongsTo(UasAircraftModel::class, 'source_aircraft_model_id');
     }
 }
+
 

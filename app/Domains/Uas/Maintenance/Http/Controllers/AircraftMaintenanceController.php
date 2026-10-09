@@ -24,7 +24,17 @@ class AircraftMaintenanceController extends Controller
         $props = [
             'aircraft' => ['id' => $aircraft->id, 'registration' => $aircraft->registration],
             'components' => $aircraft->components()->get(['id', 'name', 'status', 'installed_at',
-                'accumulated_hours', 'accumulated_cycles', 'life_limit_hours', 'life_limit_cycles']),
+                'accumulated_hours', 'accumulated_cycles', 'life_limit_hours', 'life_limit_cycles',
+                'serial_number', 'removed_at', 'replaces_component_id', 'removal_evidence', 'installation_evidence'])
+                ->map(function ($component) use ($operator) {
+                    $record = $component->toArray();
+                    foreach (['removal_evidence', 'installation_evidence'] as $key) {
+                        if ((int) data_get($record, $key.'.operator_id') !== (int) $operator->id) {
+                            unset($record[$key]);
+                        }
+                    }
+                    return $record;
+                }),
             'tasks' => MaintenanceTask::query()->where('uas_aircraft_id', $aircraft->id)
                 ->where('uas_operator_id', $operator->id)->latest('id')->paginate(20)->withQueryString()
                 ->through(fn ($task) => [...$task->toArray(), 'due_state' => app(AircraftMaintenanceSummary::class)
@@ -91,15 +101,25 @@ class AircraftMaintenanceController extends Controller
             'evidence_reference' => ['required', 'string', 'max:2000'],
             'certification' => ['required', 'string', 'max:2000'],
             'completion_confirmed' => ['required', 'accepted'],
+            'end_recurrence' => ['sometimes', 'boolean'],
+            'end_recurrence_reason' => ['nullable', 'required_if:end_recurrence,1', 'string', 'max:2000'],
         ]);
         $task = DB::transaction(function () use ($task, $aircraft, $request, $data) {
             UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
             $task = MaintenanceTask::query()->lockForUpdate()->findOrFail($task->id);
             if ($task->completed_at === null) {
+                if ($request->boolean('end_recurrence')) {
+                    $component = $aircraft->components()->find($task->uas_aircraft_component_id);
+                    if (! $component || ! in_array($component->status, ['removed', 'awaiting_replacement', 'retired'], true)
+                        || ! filled($data['end_recurrence_reason'] ?? null)) {
+                        throw ValidationException::withMessages(['end_recurrence' => 'Only an uninstalled component programme can end, with an explicit reason.']);
+                    }
+                }
                 $task->forceFill(['completed_at' => now(), 'completed_by' => $request->user()->id,
                     'completion_evidence' => $data])->save();
-                $next = app(\App\Domains\Uas\Maintenance\Application\Actions\GenerateNextMaintenanceTask::class)
-                    ->execute($task, $request->user()->id);
+                $next = $request->boolean('end_recurrence') ? null
+                    : app(\App\Domains\Uas\Maintenance\Application\Actions\GenerateNextMaintenanceTask::class)
+                        ->execute($task, $request->user()->id);
                 if ($next) {
                     $this->audit($request, $next, 'maintenance.successor_scheduled');
                 }
@@ -112,7 +132,7 @@ class AircraftMaintenanceController extends Controller
             : redirect()->route('aircraft.maintenance.index', $aircraft);
     }
 
-    private function authorizeAircraft(Request $request, UasAircraft $aircraft, CurrentOperatorContext $context, bool $manage = false)
+    protected function authorizeAircraft(Request $request, UasAircraft $aircraft, CurrentOperatorContext $context, bool $manage = false)
     {
         $operator = $context->requireFromRequest($request);
         abort_unless($operator->aircraft()->whereKey($aircraft->id)->wherePivot('status', 'active')->exists(), 404);

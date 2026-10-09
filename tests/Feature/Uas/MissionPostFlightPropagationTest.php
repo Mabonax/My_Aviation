@@ -399,6 +399,136 @@ function recurringCompletionEvidence(): array
         'certification' => 'Programme certification 456', 'completion_confirmed' => true];
 }
 
+function componentChangeEvidence(array $overrides = []): array
+{
+    return [...[
+        'reason' => 'Replace worn motor', 'technician' => 'Authorised component technician',
+        'evidence_reference' => 'Vault replacement report 789', 'certification' => 'Component change certificate 789',
+        'change_confirmed' => true, 'serial_number' => 'NEW-'.uniqid(),
+        'accumulated_hours' => 0, 'accumulated_cycles' => 0,
+    ], ...$overrides];
+}
+
+it('keeps removal blocked until replacement and preserves lifetime totals and old programme obligations', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $old = maintenanceComponent($mission, ['serial_number' => 'OLD-789', 'accumulated_hours' => 10, 'accumulated_cycles' => 10]);
+    Sanctum::actingAs($user);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}";
+    $taskId = $this->postJson($base.'/maintenance', [
+        'title' => 'Old motor programme', 'requirement_source' => 'Programme v3',
+        'uas_aircraft_component_id' => $old->id, 'due_cycles' => 10, 'interval_cycles' => 10,
+    ])->assertCreated()->json('data.task.id');
+    $evidence = componentChangeEvidence();
+    $this->postJson($base."/components/{$old->id}/remove", $evidence)->assertOk();
+    $this->postJson($base."/components/{$old->id}/remove", [...$evidence, 'reason' => 'Overwrite'])->assertOk();
+    $this->getJson($base.'/maintenance')->assertJsonPath('data.summary.status', 'red');
+    expect($old->fresh()->status)->toBe('awaiting_replacement')
+        ->and($old->fresh()->removal_evidence['reason'])->toBe('Replace worn motor');
+    $newId = $this->postJson($base."/components/{$old->id}/replace", $evidence)
+        ->assertOk()->assertJsonPath('data.component.replaces_component_id', $old->id)
+        ->assertJsonPath('data.component.life_limit_hours', '10.00')->json('data.component.id');
+    $this->postJson($base."/components/{$old->id}/replace", componentChangeEvidence())
+        ->assertOk()->assertJsonPath('data.component.id', $newId);
+    expect($old->fresh()->status)->toBe('removed')
+        ->and((float) $old->fresh()->accumulated_hours)->toBe(10.0)
+        ->and($mission->aircraft->components()->count())->toBe(2)
+        ->and(UasAuditEntry::query()->where('action', 'component.removed')->count())->toBe(1)
+        ->and(UasAuditEntry::query()->where('action', 'component.installed')->count())->toBe(1);
+    $this->getJson($base.'/maintenance')->assertJsonPath('data.summary.status', 'red');
+    $this->postJson($base."/maintenance/{$taskId}/complete", [...recurringCompletionEvidence(), 'end_recurrence' => true])
+        ->assertUnprocessable();
+    $this->postJson($base."/maintenance/{$taskId}/complete", [...recurringCompletionEvidence(),
+        'end_recurrence' => true, 'end_recurrence_reason' => 'Removed component programme closed; replacement programme configured separately.'])
+        ->assertOk()->assertJsonPath('data.next_task', null);
+    $this->getJson($base.'/maintenance')->assertJsonPath('data.summary.status', 'green');
+});
+
+it('uses historical installation intervals for delayed telemetry instead of charging the replacement', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $old = maintenanceComponent($mission, ['serial_number' => 'HISTORY-OLD']);
+    Sanctum::actingAs($user);
+    $newId = $this->postJson("/api/v1/aircraft/{$mission->uas_aircraft_id}/components/{$old->id}/replace", componentChangeEvidence())
+        ->assertOk()->json('data.component.id');
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $action->accept($mission, $action->stage($mission, $user, telemetryCsvForMission($mission)), $user, telemetryDeclarations());
+    expect((float) $old->fresh()->accumulated_hours)->toBe(1.0)
+        ->and($old->fresh()->accumulated_cycles)->toBe(1)
+        ->and($mission->aircraft->components()->findOrFail($newId)->accumulated_cycles)->toBe(0);
+});
+
+it('rejects flight evidence crossing a component change and rolls back post-flight writes', function () {
+    $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-01T08:30:00Z'));
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $old = maintenanceComponent($mission);
+    Sanctum::actingAs($user);
+    $this->postJson("/api/v1/aircraft/{$mission->uas_aircraft_id}/components/{$old->id}/remove", componentChangeEvidence())->assertOk();
+    $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-02T10:00:00Z'));
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect(UasFlightTrack::query()->count())->toBe(0)
+        ->and(PilotLogEntry::query()->count())->toBe(0)
+        ->and($old->fresh()->accumulated_cycles)->toBe(0);
+});
+
+it('validates replacement serials and usable life before mutating the installed component', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $old = maintenanceComponent($mission, ['serial_number' => 'SAME-SERIAL']);
+    Sanctum::actingAs($user);
+    $url = "/api/v1/aircraft/{$mission->uas_aircraft_id}/components/{$old->id}/replace";
+    $this->postJson($url, componentChangeEvidence(['serial_number' => 'SAME-SERIAL']))->assertUnprocessable();
+    $this->postJson($url, componentChangeEvidence(['accumulated_hours' => 10]))->assertUnprocessable();
+    $this->postJson($url, componentChangeEvidence(['accumulated_cycles' => -1]))->assertUnprocessable();
+    expect($old->fresh()->status)->toBe('active')->and($old->fresh()->removed_at)->toBeNull()
+        ->and($mission->aircraft->components()->count())->toBe(1);
+    $task = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceTask::query()->create([
+        'title' => 'Active component programme', 'requirement_source' => 'Programme v3',
+        'uas_operator_id' => $mission->uas_operator_id, 'uas_aircraft_id' => $mission->uas_aircraft_id,
+        'uas_aircraft_component_id' => $old->id, 'due_cycles' => 10, 'interval_cycles' => 10, 'created_by' => $user->id,
+    ]);
+    $this->postJson("/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance/{$task->id}/complete",
+        [...recurringCompletionEvidence(), 'end_recurrence' => true, 'end_recurrence_reason' => 'Cannot end an installed programme'])
+        ->assertUnprocessable();
+    expect($task->fresh()->completed_at)->toBeNull();
+});
+
+it('enforces component ownership and keeps lifecycle evidence scoped on shared aircraft', function () {
+    $mission = postFlightPropagationMission();
+    $other = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $old = maintenanceComponent($mission);
+    $foreign = maintenanceComponent($other);
+    Sanctum::actingAs($user);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}";
+    $this->postJson($base."/components/{$foreign->id}/remove", componentChangeEvidence())->assertNotFound();
+    $newId = $this->postJson($base."/components/{$old->id}/replace", componentChangeEvidence())->assertOk()->json('data.component.id');
+    $reader = postFlightPropagationUser();
+    postFlightAuthorize($reader, $mission, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    Sanctum::actingAs($reader);
+    $this->postJson($base."/components/{$newId}/remove", componentChangeEvidence())->assertForbidden();
+    $manager = postFlightPropagationUser();
+    postFlightAuthorize($manager, $other);
+    $other->operator->aircraft()->attach($mission->uas_aircraft_id, ['assignment_role' => 'operated_aircraft', 'status' => 'active']);
+    Sanctum::actingAs($manager);
+    $this->getJson($base.'/maintenance')->assertOk()
+        ->assertJsonMissingPath('data.components.0.removal_evidence')
+        ->assertJsonMissingPath('data.components.1.installation_evidence');
+    $this->postJson($base."/components/{$old->id}/replace", componentChangeEvidence())
+        ->assertOk()->assertJsonMissingPath('data.component.installation_evidence');
+});
+
 it('rejects missing or non-positive recurring interval pairs without scheduling evidence', function () {
     $mission = postFlightPropagationMission();
     $user = postFlightPropagationUser();

@@ -15,10 +15,10 @@
 ## Boundaries
 
 - No automatic historical backfill; recorded totals must be reconciled with pre-existing usage before operational adoption.
-- Current component installation state is not a historical installation/removal ledger. Historical flights skip components installed later or currently retired/removed.
+- New recorded component changes retain installation/removal timestamps. Historical usage follows those intervals. Legacy retired/removed components without recorded change times still lack sufficient installation history.
 - One mission represents one takeoff/landing cycle in this milestone.
 - No manufacturer baseline is automatically interpreted as an approved maintenance interval. Managers must configure source-backed thresholds.
-- Work orders, replacement/removal workflows, dedicated technician authority, battery maintenance intervals and formal return-to-service certification remain future work.
+- Work orders, dedicated technician authority, battery maintenance intervals and formal return-to-service certification remain future work.
 - Task completion records a manager's supporting references; it does not verify the technician's credentials with an external authority.
 - No native DJI/Autel parser or Flutter maintenance UI is included.
 
@@ -37,3 +37,15 @@ Completion creates one successor in the same transaction as immutable completion
 Thresholds advance from the previous due values rather than completion date or current usage. Late completion does not extend the programme or skip overdue intervals. This fixed programme model must be used only when it matches the applicable operator/manufacturer programme. Floating point drift is avoided by calculating hour thresholds in hundredths.
 
 The next task participates in the existing readiness controls immediately. Component life totals and limits remain unchanged. Storage overflow rolls back the entire completion transaction. This milestone does not add interval editing, cancellation, schedule rebaselining or calendar-month intervals.
+
+## Component lifecycle follow-up
+
+The maintenance workspace and API record removal and replacement with technician, reason, certification and evidence references. Removal sets an awaiting-replacement state which blocks readiness. Replacement creates a distinct component record linked to its predecessor; old usage and serial history are retained. Existing known life limits are retained when replacement limits are omitted. Initial replacement usage is explicitly declared and must leave usable component life.
+
+Changes use server recording times, not backdated installation times. Historical flight usage is attributed to the component installed for the whole flight. A flight overlapping a component change or vacant installation interval is rejected for review. No automatic historical backfill occurs.
+
+Open maintenance obligations are not deleted or transferred automatically. Completing a removed component's programme can explicitly end recurrence with a reason retained in immutable completion evidence. Active installed component programmes cannot be ended through this option. Replacement requirements must be configured from supporting source evidence.
+
+State and serial history are shared aircraft facts. Installation/removal evidence is visible only in its recording operator context. Aircraft locks and a unique replacement link protect repeat requests; invalid replacements leave the old component unchanged.
+
+This is same-model/component-type replacement, not an engineering modification or regulator-approved return to service. Initial installation of additional components, transfer between aircraft, backdated corrections, independent technician authority and MySQL concurrency/browser acceptance remain outstanding.

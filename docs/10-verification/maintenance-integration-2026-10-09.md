@@ -55,3 +55,9 @@ This is same-model/component-type replacement, not an engineering modification o
 Post-flight component usage validates the resulting lifetime counters before writing a ledger entry. Hour arithmetic uses integer hundredths; totals above 99,999,999.99 hours or 4,294,967,295 flight cycles reject acceptance with a review message. This applies consistently to SQLite and MySQL instead of relying on database overflow behaviour. Reaching the exact storage boundary remains valid and idempotent. Component life-limit readiness checks remain separate.
 
 Regression coverage checks both overflowing counters, including rollback of an earlier component update, telemetry acceptance, mission actuals, track, pilot log and aircraft folio. Exact-boundary acceptance is also covered. Live MySQL concurrency remains unverified.
+
+## Completion serviceability outcome
+
+Maintenance completion now requires a serviceable, flight-restricted or unserviceable assessment and supporting notes. Restricted findings impose an audited aircraft operational restriction within the completion transaction. Unserviceable findings can escalate a flight restriction. Existing grounding, suspension and other blocked states remain unchanged; a serviceable assessment cannot automatically clear them. Repeat completion cannot rewrite evidence or remove a restriction. Recurrence still generates its successor atomically.
+
+This records the FR-MNT-003 outcome and conservatively enforces restrictions. It does not establish independent technician credentials or provide regulatory return-to-service approval. Existing records are retained without inferred outcomes. Web/API clients must submit both new evidence fields. Automated coverage includes missing evidence, immutable repeats, restricted findings and preserved grounding/suspension; browser acceptance remains outstanding.

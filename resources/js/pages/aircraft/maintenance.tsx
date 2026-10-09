@@ -9,7 +9,7 @@ import ComponentLifecycleCard, { type TrackedComponent } from './component-lifec
 
 type Component = TrackedComponent;
 type Task = { id: number; title: string; requirement_source: string; due_at: string | null; due_hours: string | null; due_cycles: number | null; interval_days: number | null; interval_hours: string | null; interval_cycles: number | null; previous_task_id: number | null; uas_aircraft_component_id: number | null; completed_at: string | null; completion_evidence: Record<string, string> | null; due_state: { status: string; remaining_days: number | null; remaining_hours: number | null; remaining_cycles: number | null } };
-type Props = { aircraft: { id: number; registration: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean };
+type Props = { aircraft: { id: number; registration: string; operational_status: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean };
 
 export default function Maintenance({ aircraft, components, tasks, summary, can_manage }: Props) {
     const base = `/aircraft/${aircraft.id}/maintenance`;
@@ -25,6 +25,7 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
                 <PageHeader title="Maintenance programme" description={aircraft.registration} actions={<Button variant="outline" asChild><Link href={`/aircraft/${aircraft.id}`}>Back to aircraft</Link></Button>} />
                 <section className="rounded-xl border p-5" aria-label="Maintenance readiness">
                     <h2 className="font-semibold">Maintenance readiness: {summary.status === 'red' ? 'Blocked' : summary.status === 'amber' ? 'Review required' : 'No configured limits due'}</h2>
+                    <p className="mt-2 text-sm">Aircraft operational status: {aircraft.operational_status.replaceAll('_', ' ')}. Flight release also checks this status.</p>
                     {[...summary.blocking_reasons, ...summary.review_reasons].map((reason, index) => <p key={index} className="mt-2 text-sm">{reason}</p>)}
                     <p className="mt-2 text-sm text-muted-foreground">Readiness checks all configured aircraft obligations. This workspace shows tasks belonging to the selected operator. Dates become due at the start of the stated day. Hours and cycles are absolute component totals; a cycle is one accepted mission flight.</p>
                 </section>
@@ -78,7 +79,7 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
 }
 
 function TaskCard({ task, base, canManage, components }: { task: Task; base: string; canManage: boolean; components: Component[] }) {
-    const form = useForm({ work_performed: '', technician: '', parts_components: '', evidence_reference: '', certification: '', completion_confirmed: false, end_recurrence: false, end_recurrence_reason: '' });
+    const form = useForm({ work_performed: '', technician: '', parts_components: '', evidence_reference: '', certification: '', return_to_service_state: '', return_to_service_notes: '', completion_confirmed: false, end_recurrence: false, end_recurrence_reason: '' });
     const component = components.find((item) => item.id === task.uas_aircraft_component_id);
     function complete(event: FormEvent) {
         event.preventDefault();
@@ -94,6 +95,9 @@ function TaskCard({ task, base, canManage, components }: { task: Task; base: str
         {!task.completed_at && <p className="mt-2 text-sm">Remaining: {task.due_state.remaining_days !== null ? `${task.due_state.remaining_days} days; ` : ''}{task.due_state.remaining_hours !== null ? `${task.due_state.remaining_hours} hours; ` : ''}{task.due_state.remaining_cycles !== null ? `${task.due_state.remaining_cycles} cycles` : ''}</p>}
         {task.completed_at ? <details className="mt-3 text-sm"><summary>Completion evidence · {task.completed_at}</summary>{Object.entries(task.completion_evidence ?? {}).filter(([key]) => key !== 'completion_confirmed').map(([key, value]) => <p key={key} className="mt-2 break-words">{key.replaceAll('_', ' ')}: {String(value)}</p>)}</details> : canManage && <form onSubmit={complete} className="mt-4 flex flex-col gap-3">
             {(['work_performed', 'technician', 'parts_components', 'evidence_reference', 'certification'] as const).map((key) => <label key={key} className="text-sm">{key.replaceAll('_', ' ')}<Input required maxLength={key === 'technician' ? 180 : 2000} disabled={form.processing} value={form.data[key]} onChange={(event) => form.setData(key, event.target.value)} /></label>)}
+            <label className="text-sm">Serviceability outcome<select required className="mt-1 block w-full rounded-md border bg-background p-2" disabled={form.processing} value={form.data.return_to_service_state} onChange={(event) => form.setData('return_to_service_state', event.target.value)}><option value="">Select outcome</option><option value="serviceable">Serviceable assessment</option><option value="flight_restricted">Flight restricted</option><option value="unserviceable">Unserviceable</option></select></label>
+            <label className="text-sm">Serviceability evidence and restrictions<Input required maxLength={2000} disabled={form.processing} value={form.data.return_to_service_notes} onChange={(event) => form.setData('return_to_service_notes', event.target.value)} /></label>
+            <p className="text-sm text-muted-foreground">Restricted or unserviceable outcomes block release. A serviceable assessment preserves existing aircraft restrictions; authorised return to service and all other release controls still apply.</p>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.completion_confirmed} disabled={form.processing} onChange={(event) => form.setData('completion_confirmed', event.target.checked)} />I confirm this task is complete and the supporting evidence is recorded.</label>
             {component && ['removed', 'retired', 'awaiting_replacement'].includes(component.status) && (task.interval_days !== null || task.interval_hours !== null || task.interval_cycles !== null) && <>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.end_recurrence} disabled={form.processing} onChange={(event) => form.setData('end_recurrence', event.target.checked)} />End this removed component's recurring programme with this completion.</label>

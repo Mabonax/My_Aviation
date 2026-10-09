@@ -396,7 +396,8 @@ function recurringCompletionEvidence(): array
 {
     return ['work_performed' => 'Scheduled inspection completed', 'technician' => 'Programme technician',
         'parts_components' => 'Inspected installed motor', 'evidence_reference' => 'Vault inspection 456',
-        'certification' => 'Programme certification 456', 'completion_confirmed' => true];
+        'certification' => 'Programme certification 456', 'completion_confirmed' => true,
+        'return_to_service_state' => 'serviceable', 'return_to_service_notes' => 'Inspection found no additional restrictions.'];
 }
 
 function componentChangeEvidence(array $overrides = []): array
@@ -648,6 +649,7 @@ it('carries reviewed telemetry into component usage and due maintenance without 
         'work_performed' => 'Inspection complete', 'technician' => 'Authorised technician',
         'parts_components' => 'No replacement parts', 'evidence_reference' => 'Vault inspection report 123',
         'certification' => 'Operator maintenance certification 123', 'completion_confirmed' => true,
+        'return_to_service_state' => 'serviceable', 'return_to_service_notes' => 'Inspection found no additional restrictions.',
     ];
     $this->postJson($url."/{$taskId}/complete", $completion)->assertOk();
     $this->postJson($url."/{$taskId}/complete", [...$completion, 'work_performed' => 'Overwrite attempt'])->assertOk();
@@ -656,6 +658,41 @@ it('carries reviewed telemetry into component usage and due maintenance without 
     expect((float) $component->fresh()->accumulated_hours)->toBe(1.0)
         ->and(UasAuditEntry::query()->where('action', 'maintenance.completed')->count())->toBe(1);
 });
+
+it('records completion serviceability without clearing existing restrictions', function (string $initial, string $outcome, string $expected) {
+    $mission = postFlightPropagationMission();
+    $mission->aircraft->forceFill(['operational_status' => $initial])->save();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    Sanctum::actingAs($user);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $id = $this->postJson($base, ['title' => 'Serviceability inspection', 'requirement_source' => 'Approved programme', 'due_at' => '2026-01-01'])
+        ->assertCreated()->json('data.task.id');
+    $data = [...recurringCompletionEvidence(), 'return_to_service_state' => $outcome,
+        'return_to_service_notes' => 'Recorded inspection result and restriction evidence.'];
+    $this->postJson($base."/{$id}/complete", [...$data, 'return_to_service_state' => ''])->assertUnprocessable()
+        ->assertJsonValidationErrors('return_to_service_state');
+    $this->postJson($base."/{$id}/complete", [...$data, 'return_to_service_notes' => ''])->assertUnprocessable()
+        ->assertJsonValidationErrors('return_to_service_notes');
+    expect($mission->aircraft->fresh()->operational_status)->toBe($initial);
+    $this->postJson($base."/{$id}/complete", $data)->assertOk()
+        ->assertJsonPath('data.task.completion_evidence.return_to_service_state', $outcome);
+    $this->postJson($base."/{$id}/complete", [...$data, 'return_to_service_state' => 'serviceable'])->assertOk()
+        ->assertJsonPath('data.task.completion_evidence.return_to_service_state', $outcome);
+    expect($mission->aircraft->fresh()->operational_status)->toBe($expected)
+        ->and(app(\App\Domains\Uas\Aircraft\Domain\Services\AircraftServiceabilityEvaluator::class)
+            ->mayBeAssignedToReleasedFlight($mission->aircraft->fresh()))->toBeFalse()
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.serviceability_restricted')->count())
+            ->toBe($initial === $expected ? 0 : 1);
+    $summary = app(\App\Domains\Uas\Missions\Application\Queries\MissionComplianceSummary::class)->execute($mission->fresh());
+    expect(data_get($summary, 'controls.0.blocking'))->toBeTrue();
+})->with([
+    'new restriction' => ['active_serviceable', 'flight_restricted', 'flight_restricted'],
+    'unserviceable finding' => ['active_serviceable', 'unserviceable', 'unserviceable'],
+    'escalates restriction' => ['flight_restricted', 'unserviceable', 'unserviceable'],
+    'preserves grounding' => ['grounded', 'serviceable', 'grounded'],
+    'preserves suspension' => ['suspended', 'flight_restricted', 'suspended'],
+]);
 
 it('blocks component life limits at equality and cannot clear them by completing a task', function () {
     $mission = postFlightPropagationMission();

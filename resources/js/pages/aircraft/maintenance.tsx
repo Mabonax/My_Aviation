@@ -6,12 +6,13 @@ import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
 import ComponentLifecycleCard, { type TrackedComponent } from './component-lifecycle-card';
+import MaintenanceAuthorityPanel, { type Authority, type AuthorityMember } from './maintenance-authority-panel';
 
 type Component = TrackedComponent;
 type Task = { id: number; title: string; requirement_source: string; due_at: string | null; due_hours: string | null; due_cycles: number | null; interval_days: number | null; interval_hours: string | null; interval_cycles: number | null; previous_task_id: number | null; uas_aircraft_component_id: number | null; completed_at: string | null; completion_evidence: Record<string, string> | null; due_state: { status: string; remaining_days: number | null; remaining_hours: number | null; remaining_cycles: number | null } };
-type Props = { aircraft: { id: number; registration: string; operational_status: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean };
+type Props = { aircraft: { id: number; registration: string; operational_status: string }; components: Component[]; tasks: { data: Task[]; prev_page_url: string | null; next_page_url: string | null }; summary: { status: string; blocking_reasons: string[]; review_reasons: string[] }; can_manage: boolean; can_certify: boolean; can_return_to_service: boolean; maintenance_releases: { id: number; maintenance_task_id: number; released_at: string; released_by: number }[]; authorities: Authority[]; authority_members: AuthorityMember[] };
 
-export default function Maintenance({ aircraft, components, tasks, summary, can_manage }: Props) {
+export default function Maintenance({ aircraft, components, tasks, summary, can_manage, can_certify, can_return_to_service, maintenance_releases, authorities, authority_members }: Props) {
     const base = `/aircraft/${aircraft.id}/maintenance`;
     const form = useForm({ title: '', requirement_source: '', uas_aircraft_component_id: '', due_at: '', due_hours: '', due_cycles: '', interval_days: '', interval_hours: '', interval_cycles: '' });
     function schedule(event: FormEvent) {
@@ -34,9 +35,11 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
                     <p className="mt-2 text-sm text-muted-foreground">Recorded flights update active components installed before takeoff. Existing usage is retained; historical flights are not backfilled automatically.</p>
                     {components.length === 0 && <p className="mt-3 text-sm">No tracked components are configured.</p>}
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {components.map((component) => <ComponentLifecycleCard key={component.id} component={component} aircraftId={aircraft.id} canManage={can_manage} />)}
+                        {components.map((component) => <ComponentLifecycleCard key={component.id} component={component} aircraftId={aircraft.id} canManage={can_certify} />)}
                     </div>
                 </section>
+                <MaintenanceAuthorityPanel aircraftId={aircraft.id} authorities={authorities} members={authority_members} canManage={can_manage} />
+                {!can_certify && <p className="text-sm text-muted-foreground">Your current aircraft certification authority is required to sign off tasks or component changes.</p>}
                 {can_manage && <section className="rounded-xl border p-5">
                     <h2 className="font-semibold">Schedule a maintenance obligation</h2>
                     <form onSubmit={schedule} className="mt-4 flex flex-col gap-3">
@@ -70,7 +73,8 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
                 <section className="flex flex-col gap-4">
                     <h2 className="font-semibold">Operator maintenance records</h2>
                     {tasks.data.length === 0 && <p className="text-sm">No maintenance tasks are recorded for this operator.</p>}
-                    {tasks.data.map((task) => <TaskCard key={task.id} task={task} base={base} canManage={can_manage} components={components} />)}
+                    {tasks.data.map((task) => <TaskCard key={task.id} task={task} base={base} canManage={can_certify} components={components} canRelease={can_return_to_service && ['flight_restricted', 'unserviceable'].includes(aircraft.operational_status)} />)}
+                    {maintenance_releases.map((release) => <p key={release.id} className="mt-3 text-sm">Return-to-service record #{release.id} · task #{release.maintenance_task_id} · {release.released_at} · certifying member #{release.released_by}</p>)}
                     <nav className="flex gap-4" aria-label="Maintenance history pages">{tasks.prev_page_url && <Link href={tasks.prev_page_url}>Previous</Link>}{tasks.next_page_url && <Link href={tasks.next_page_url}>Next</Link>}</nav>
                 </section>
             </main>
@@ -78,7 +82,7 @@ export default function Maintenance({ aircraft, components, tasks, summary, can_
     );
 }
 
-function TaskCard({ task, base, canManage, components }: { task: Task; base: string; canManage: boolean; components: Component[] }) {
+function TaskCard({ task, base, canManage, components, canRelease }: { task: Task; base: string; canManage: boolean; components: Component[]; canRelease: boolean }) {
     const form = useForm({ work_performed: '', technician: '', parts_components: '', evidence_reference: '', certification: '', return_to_service_state: '', return_to_service_notes: '', completion_confirmed: false, end_recurrence: false, end_recurrence_reason: '' });
     const component = components.find((item) => item.id === task.uas_aircraft_component_id);
     function complete(event: FormEvent) {
@@ -93,7 +97,7 @@ function TaskCard({ task, base, canManage, components }: { task: Task; base: str
         {component && <p className="text-sm">Component: {component.name}</p>}
         <p className="mt-2 text-sm">Thresholds: {task.due_at ? `date ${task.due_at.slice(0, 10)}; ` : ''}{task.due_hours !== null ? `${task.due_hours} hours; ` : ''}{task.due_cycles !== null ? `${task.due_cycles} cycles` : ''}</p>
         {!task.completed_at && <p className="mt-2 text-sm">Remaining: {task.due_state.remaining_days !== null ? `${task.due_state.remaining_days} days; ` : ''}{task.due_state.remaining_hours !== null ? `${task.due_state.remaining_hours} hours; ` : ''}{task.due_state.remaining_cycles !== null ? `${task.due_state.remaining_cycles} cycles` : ''}</p>}
-        {task.completed_at ? <details className="mt-3 text-sm"><summary>Completion evidence · {task.completed_at}</summary>{Object.entries(task.completion_evidence ?? {}).filter(([key]) => key !== 'completion_confirmed').map(([key, value]) => <p key={key} className="mt-2 break-words">{key.replaceAll('_', ' ')}: {String(value)}</p>)}</details> : canManage && <form onSubmit={complete} className="mt-4 flex flex-col gap-3">
+        {task.completed_at ? <details className="mt-3 text-sm"><summary>Completion evidence · {task.completed_at}</summary>{Object.entries(task.completion_evidence ?? {}).filter(([key]) => key !== 'completion_confirmed').map(([key, value]) => <p key={key} className="mt-2 break-words">{key.replaceAll('_', ' ')}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>)}</details> : canManage && <form onSubmit={complete} className="mt-4 flex flex-col gap-3">
             {(['work_performed', 'technician', 'parts_components', 'evidence_reference', 'certification'] as const).map((key) => <label key={key} className="text-sm">{key.replaceAll('_', ' ')}<Input required maxLength={key === 'technician' ? 180 : 2000} disabled={form.processing} value={form.data[key]} onChange={(event) => form.setData(key, event.target.value)} /></label>)}
             <label className="text-sm">Serviceability outcome<select required className="mt-1 block w-full rounded-md border bg-background p-2" disabled={form.processing} value={form.data.return_to_service_state} onChange={(event) => form.setData('return_to_service_state', event.target.value)}><option value="">Select outcome</option><option value="serviceable">Serviceable assessment</option><option value="flight_restricted">Flight restricted</option><option value="unserviceable">Unserviceable</option></select></label>
             <label className="text-sm">Serviceability evidence and restrictions<Input required maxLength={2000} disabled={form.processing} value={form.data.return_to_service_notes} onChange={(event) => form.setData('return_to_service_notes', event.target.value)} /></label>
@@ -107,5 +111,23 @@ function TaskCard({ task, base, canManage, components }: { task: Task; base: str
             <div role="alert">{Object.entries(form.errors).map(([key, message]) => <InputError key={key} message={message} />)}</div>
             <Button type="submit" disabled={form.processing || !form.data.completion_confirmed}>{form.processing ? 'Recording…' : 'Record completion'}</Button>
         </form>}
+        {canRelease && task.completed_at && task.completion_evidence?.return_to_service_state === 'serviceable' && <ReturnToServiceForm taskId={task.id} base={base} />}
     </article>;
+}
+
+function ReturnToServiceForm({ taskId, base }: { taskId: number; base: string }) {
+    const form = useForm({ evidence_reference: '', release_notes: '', release_confirmed: false });
+    function release(event: FormEvent) {
+        event.preventDefault();
+        form.post(`${base}/${taskId}/return-to-service`, { preserveScroll: true });
+    }
+    return <form onSubmit={release} className="mt-4 flex flex-col gap-3 rounded-lg border p-4">
+        <h4 className="font-medium">Maintenance return to service</h4>
+        <p className="text-sm text-muted-foreground">Use a new repair or inspection task completed after this operator's maintenance restriction. Due maintenance, component limits, installation gaps, blocking defects and active flights must be resolved. Flight release still requires its separate compliance checks.</p>
+        <label className="text-sm">Release evidence reference<Input required maxLength={2000} disabled={form.processing} value={form.data.evidence_reference} onChange={(event) => form.setData('evidence_reference', event.target.value)} /></label>
+        <label className="text-sm">Release notes<Input required maxLength={2000} disabled={form.processing} value={form.data.release_notes} onChange={(event) => form.setData('release_notes', event.target.value)} /></label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.data.release_confirmed} disabled={form.processing} onChange={(event) => form.setData('release_confirmed', event.target.checked)} />I confirm the repair evidence and my authority to return this aircraft to service.</label>
+        <div role="alert">{Object.entries(form.errors).map(([key, message]) => <InputError key={key} message={message} />)}</div>
+        <Button disabled={form.processing || !form.data.release_confirmed}>Record return to service</Button>
+    </form>;
 }

@@ -76,6 +76,14 @@ function postFlightAuthorize(User $user, UasMission $mission, string $role = Uas
         'status' => UasOperatorMembership::STATUS_ACTIVE,
     ]);
 
+    if ($role === UasOperatorMembership::ROLE_OPERATIONS_MANAGER && $mission->uas_aircraft_id) {
+        \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->create([
+            'uas_operator_id' => $operator->id, 'uas_aircraft_id' => $mission->uas_aircraft_id,
+            'user_id' => $user->id, 'granted_by' => $user->id,
+            'valid_until' => '2099-12-31', 'evidence_reference' => 'Test fixture verified maintenance authority',
+        ]);
+    }
+
     if ($mission->uas_aircraft_id) {
         $operator->aircraft()->syncWithoutDetaching([
             $mission->uas_aircraft_id => ['assignment_role' => 'operated_aircraft', 'status' => 'active'],
@@ -391,6 +399,118 @@ function maintenanceComponent(UasMission $mission, array $overrides = [])
         'accumulated_hours' => 0, 'accumulated_cycles' => 0,
     ], $overrides));
 }
+
+it('requires scoped current authority and allows an authorised maintenance officer to certify', function () {
+    $mission = postFlightPropagationMission();
+    $manager = postFlightPropagationUser();
+    postFlightAuthorize($manager, $mission);
+    \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->delete();
+    Sanctum::actingAs($manager);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $id = $this->postJson($base, ['title' => 'Inspection', 'requirement_source' => 'Programme', 'due_at' => '2026-01-01'])->assertCreated()->json('data.task.id');
+    $this->postJson($base."/{$id}/complete", recurringCompletionEvidence())->assertForbidden();
+    $officer = postFlightPropagationUser();
+    postFlightAuthorize($officer, $mission, UasOperatorMembership::ROLE_MAINTENANCE_OFFICER);
+    $grantUrl = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance-authorities";
+    $grantData = ['user_id' => $officer->id, 'valid_until' => today()->addYear()->toDateString(), 'evidence_reference' => 'Verified authorisation document', 'authority_confirmed' => true];
+    $this->postJson($grantUrl, [...$grantData, 'user_id' => $manager->id])->assertUnprocessable()->assertJsonValidationErrors('user_id');
+    $grantId = $this->postJson($grantUrl, $grantData)->assertCreated()->json('data.authority.id');
+    Sanctum::actingAs($officer);
+    $this->getJson($base)->assertOk()->assertJsonPath('data.can_certify', true)->assertJsonPath('data.can_manage', false);
+    $this->postJson($base."/{$id}/complete", recurringCompletionEvidence())->assertOk()
+        ->assertJsonPath('data.task.completion_evidence.certifying_user_id', $officer->id)
+        ->assertJsonPath('data.task.completion_evidence.authority_snapshot.id', $grantId);
+    $this->postJson($grantUrl, $grantData)->assertForbidden();
+    Sanctum::actingAs($manager);
+    $this->postJson($grantUrl."/{$grantId}/revoke", ['reason' => 'Authorisation withdrawn'])->assertOk();
+    $this->postJson($grantUrl."/{$grantId}/revoke", ['reason' => 'Overwrite attempt'])->assertOk()
+        ->assertJsonPath('data.authority.revocation_reason', 'Authorisation withdrawn');
+    Sanctum::actingAs($officer);
+    $this->getJson($base)->assertJsonPath('data.can_certify', false)
+        ->assertJsonPath('data.tasks.data.0.completion_evidence.authority_snapshot.revoked_at', null);
+    $this->postJson($base."/{$id}/complete", recurringCompletionEvidence())->assertForbidden();
+    expect(UasAuditEntry::query()->where('action', 'maintenance.authority_revoked')->count())->toBe(1);
+});
+
+it('rejects expired certification and hides foreign authority records', function () {
+    $mission = postFlightPropagationMission();
+    $other = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    $authority = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->firstOrFail();
+    $authority->forceFill(['valid_until' => today()->subDay()])->save();
+    Sanctum::actingAs($user);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $this->getJson($base)->assertJsonPath('data.can_certify', false);
+    $component = maintenanceComponent($mission);
+    $this->postJson("/api/v1/aircraft/{$mission->uas_aircraft_id}/components/{$component->id}/remove", componentChangeEvidence())->assertForbidden();
+    $foreign = \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->create([
+        'uas_operator_id' => $other->uas_operator_id, 'uas_aircraft_id' => $mission->uas_aircraft_id,
+        'user_id' => $user->id, 'granted_by' => $user->id, 'valid_until' => '2099-12-31', 'evidence_reference' => 'Foreign secret evidence',
+    ]);
+    $this->getJson($base)->assertJsonCount(1, 'data.authorities')->assertJsonPath('data.can_certify', false);
+    $this->postJson("/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance-authorities/{$foreign->id}/revoke", ['reason' => 'Invalid context'])->assertNotFound();
+});
+
+function maintenanceReleaseFixture($test): array
+{
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->where('user_id', $user->id)->update(['can_return_to_service' => true]);
+    Sanctum::actingAs($user);
+    $base = "/api/v1/aircraft/{$mission->uas_aircraft_id}/maintenance";
+    $schedule = ['title' => 'Inspection', 'requirement_source' => 'Programme', 'due_at' => '2026-01-01'];
+    $restriction = $test->postJson($base, $schedule)->assertCreated()->json('data.task.id');
+    $test->postJson($base."/{$restriction}/complete", [...recurringCompletionEvidence(), 'return_to_service_state' => 'unserviceable'])->assertOk();
+    $repair = $test->postJson($base, $schedule)->assertCreated()->json('data.task.id');
+    $test->postJson($base."/{$repair}/complete", recurringCompletionEvidence())->assertOk();
+    return [$mission, $user, $base, $repair, $restriction];
+}
+
+it('returns a repaired aircraft to service once with immutable authority and repair evidence', function () {
+    [$mission, $user, $base, $repair, $restriction] = maintenanceReleaseFixture($this);
+    expect($mission->aircraft->fresh()->operational_status)->toBe('unserviceable');
+    $data = ['evidence_reference' => 'Repair approval document', 'release_notes' => 'Inspection verified restoration', 'release_confirmed' => true];
+    $url = $base."/{$repair}/return-to-service";
+    $this->postJson($url, [])->assertUnprocessable();
+    $id = $this->postJson($url, $data)->assertOk()->json('data.release.id');
+    $this->postJson($url, [...$data, 'release_notes' => 'Overwrite attempt'])->assertOk()->assertJsonPath('data.release.id', $id);
+    expect($mission->aircraft->fresh()->operational_status)->toBe('active_serviceable')
+        ->and($mission->aircraft->fresh()->maintenance_restriction_task_id)->toBeNull()
+        ->and(\Illuminate\Support\Facades\DB::table('uas_maintenance_releases')->count())->toBe(1)
+        ->and(UasAuditEntry::query()->where('action', 'maintenance.returned_to_service')->count())->toBe(1);
+    $record = \Illuminate\Support\Facades\DB::table('uas_maintenance_releases')->first();
+    expect(data_get(json_decode($record->evidence, true), 'release_notes'))->toBe($data['release_notes'])
+        ->and((int) $record->restriction_task_id)->toBe($restriction);
+});
+
+it('blocks return to service when authority or aircraft controls are unresolved', function (string $blocker) {
+    [$mission, $user, $base, $repair] = maintenanceReleaseFixture($this);
+    $expected = 422;
+    if ($blocker === 'authority') {
+        \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()->update(['can_return_to_service' => false]);
+        $expected = 403;
+    } elseif ($blocker === 'grounded') {
+        $mission->aircraft->forceFill(['operational_status' => 'grounded'])->save();
+    } elseif ($blocker === 'life_limit') {
+        maintenanceComponent($mission, ['accumulated_cycles' => 10]);
+    } elseif ($blocker === 'active_flight') {
+        $mission->forceFill(['lifecycle_state' => MissionLifecycleState::InProgress])->save();
+    } elseif ($blocker === 'due_task') {
+        $this->postJson($base, ['title' => 'Outstanding inspection', 'requirement_source' => 'Programme', 'due_at' => '2026-01-01'])->assertCreated();
+    } elseif ($blocker === 'defect') {
+        UasAircraftDefect::query()->create([
+            'uas_aircraft_id' => $mission->uas_aircraft_id, 'reported_by' => $user->id,
+            'defect_number' => 'RTS-'.uniqid(), 'source' => 'maintenance', 'severity' => 'ground_aircraft',
+            'status' => 'open', 'serviceability_impact' => 'grounded', 'title' => 'Unresolved defect',
+            'description' => 'Inspection evidence requires rectification', 'reported_at' => now(),
+        ]);
+    }
+    $this->postJson($base."/{$repair}/return-to-service", ['evidence_reference' => 'Approval', 'release_notes' => 'Evidence', 'release_confirmed' => true])->assertStatus($expected);
+    expect($mission->aircraft->fresh()->operational_status)->toBe($blocker === 'grounded' ? 'grounded' : 'unserviceable')
+        ->and(\Illuminate\Support\Facades\DB::table('uas_maintenance_releases')->count())->toBe(0);
+})->with(['authority', 'grounded', 'life_limit', 'active_flight', 'due_task', 'defect']);
 
 function recurringCompletionEvidence(): array
 {

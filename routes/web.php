@@ -133,7 +133,10 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('aircraft', AircraftController::class)->only(['index', 'create', 'store', 'show']);
     Route::get('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'index'])->name('aircraft.maintenance.index');
     Route::post('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'store'])->name('aircraft.maintenance.store');
+    Route::post('aircraft/{aircraft}/maintenance-authorities', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'store'])->name('aircraft.maintenance-authorities.store');
+    Route::post('aircraft/{aircraft}/maintenance-authorities/{authority}/revoke', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'revoke'])->name('aircraft.maintenance-authorities.revoke');
     Route::post('aircraft/{aircraft}/maintenance/{task}/complete', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'complete'])->name('aircraft.maintenance.complete');
+    Route::post('aircraft/{aircraft}/maintenance/{task}/return-to-service', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceReleaseController::class, 'release'])->name('aircraft.maintenance.return-to-service');
     Route::post('aircraft/{aircraft}/components/{component}/remove', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'remove'])->name('aircraft.components.remove');
     Route::post('aircraft/{aircraft}/components/{component}/replace', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'replace'])->name('aircraft.components.replace');
     Route::resource('evidence-documents', EvidenceDocumentController::class)->only(['index', 'store']);

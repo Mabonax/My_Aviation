@@ -17,11 +17,14 @@ class ComponentLifecycleController extends AircraftMaintenanceController
 {
     public function remove(Request $request, UasAircraft $aircraft, UasAircraftComponent $component, CurrentOperatorContext $context)
     {
-        $operator = $this->authorizeAircraft($request, $aircraft, $context, true);
+        $operator = $this->authorizeAircraft($request, $aircraft, $context);
         abort_unless((int) $component->uas_aircraft_id === (int) $aircraft->id, 404);
         $data = $request->validate($this->evidenceRules());
         $component = DB::transaction(function () use ($aircraft, $component, $request, $data, $operator) {
             UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
+            $authority = app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+                ->require($operator->id, $aircraft->id, $request->user()->id);
+            $data = [...$data, 'certifying_user_id' => $request->user()->id, 'authority_snapshot' => $authority->toArray()];
             $component = UasAircraftComponent::query()->lockForUpdate()->findOrFail($component->id);
             if ($component->status === 'awaiting_replacement') {
                 return $component;
@@ -40,7 +43,7 @@ class ComponentLifecycleController extends AircraftMaintenanceController
 
     public function replace(Request $request, UasAircraft $aircraft, UasAircraftComponent $component, CurrentOperatorContext $context)
     {
-        $operator = $this->authorizeAircraft($request, $aircraft, $context, true);
+        $operator = $this->authorizeAircraft($request, $aircraft, $context);
         abort_unless((int) $component->uas_aircraft_id === (int) $aircraft->id, 404);
         $data = $request->validate([...$this->evidenceRules(),
             'serial_number' => ['required', 'string', 'max:255'],
@@ -51,6 +54,9 @@ class ComponentLifecycleController extends AircraftMaintenanceController
         ]);
         $replacement = DB::transaction(function () use ($aircraft, $component, $request, $data, $operator) {
             UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
+            $authority = app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+                ->require($operator->id, $aircraft->id, $request->user()->id);
+            $data = [...$data, 'certifying_user_id' => $request->user()->id, 'authority_snapshot' => $authority->toArray()];
             $component = UasAircraftComponent::query()->lockForUpdate()->findOrFail($component->id);
             $existing = UasAircraftComponent::query()->where('replaces_component_id', $component->id)->first();
             if ($existing) {

@@ -41,6 +41,21 @@ class AircraftMaintenanceController extends Controller
                     ->taskState($task, $aircraft->components->firstWhere('id', $task->uas_aircraft_component_id))]),
             'summary' => app(AircraftMaintenanceSummary::class)->execute($aircraft),
             'can_manage' => $context->canManageOperator($request->user(), $operator) && Gate::allows('update', $aircraft),
+            'can_certify' => app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+                ->find($operator->id, $aircraft->id, $request->user()->id) !== null,
+            'can_return_to_service' => \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()
+                ->where('uas_operator_id', $operator->id)->where('uas_aircraft_id', $aircraft->id)
+                ->where('user_id', $request->user()->id)->whereNull('revoked_at')->whereDate('valid_until', '>=', today())
+                ->where('can_return_to_service', true)->exists()
+                && app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+                    ->find($operator->id, $aircraft->id, $request->user()->id) !== null,
+            'maintenance_releases' => \Illuminate\Support\Facades\DB::table('uas_maintenance_releases')
+                ->where('uas_operator_id', $operator->id)->where('uas_aircraft_id', $aircraft->id)->latest('id')->limit(20)->get(),
+            'authorities' => \App\Domains\Uas\Maintenance\Domain\Models\MaintenanceAuthority::query()
+                ->where('uas_operator_id', $operator->id)->where('uas_aircraft_id', $aircraft->id)->latest('id')->get(),
+            'authority_members' => \App\Domains\Uas\Operators\Domain\Models\UasOperatorMembership::query()
+                ->where('uas_operator_id', $operator->id)->where('status', 'active')->with('user:id,name')->get()
+                ->map(fn ($membership) => ['id' => $membership->user_id, 'name' => $membership->user->name])->unique('id')->values(),
         ];
         return $request->expectsJson() ? ApiResponse::success($props) : Inertia::render('aircraft/maintenance', $props);
     }
@@ -91,7 +106,7 @@ class AircraftMaintenanceController extends Controller
 
     public function complete(Request $request, UasAircraft $aircraft, MaintenanceTask $task, CurrentOperatorContext $context)
     {
-        $operator = $this->authorizeAircraft($request, $aircraft, $context, true);
+        $operator = $this->authorizeAircraft($request, $aircraft, $context);
         abort_unless((int) $task->uas_aircraft_id === (int) $aircraft->id
             && (int) $task->uas_operator_id === (int) $operator->id, 404);
         $data = $request->validate([
@@ -106,8 +121,10 @@ class AircraftMaintenanceController extends Controller
             'end_recurrence' => ['sometimes', 'boolean'],
             'end_recurrence_reason' => ['nullable', 'required_if:end_recurrence,1', 'string', 'max:2000'],
         ]);
-        $task = DB::transaction(function () use ($task, $aircraft, $request, $data) {
+        $task = DB::transaction(function () use ($task, $aircraft, $request, $data, $operator) {
             $aircraft = UasAircraft::query()->lockForUpdate()->findOrFail($aircraft->id);
+            $authority = app(\App\Domains\Uas\Maintenance\Application\Queries\CurrentMaintenanceAuthority::class)
+                ->require($operator->id, $aircraft->id, $request->user()->id);
             $task = MaintenanceTask::query()->lockForUpdate()->findOrFail($task->id);
             if ($task->completed_at === null) {
                 if ($request->boolean('end_recurrence')) {
@@ -118,7 +135,8 @@ class AircraftMaintenanceController extends Controller
                     }
                 }
                 $task->forceFill(['completed_at' => now(), 'completed_by' => $request->user()->id,
-                    'completion_evidence' => $data])->save();
+                    'completion_evidence' => [...$data, 'certifying_user_id' => $request->user()->id,
+                        'authority_snapshot' => $authority->toArray()]])->save();
                 $before = $aircraft->only('operational_status');
                 $outcome = $data['return_to_service_state'];
                 // Completion may impose a restriction, but never clears an existing one.
@@ -126,7 +144,7 @@ class AircraftMaintenanceController extends Controller
                     ->mayBeAssignedToReleasedFlight($aircraft);
                 if ($outcome !== 'serviceable' && ($mayRestrict
                     || ($aircraft->operational_status === 'flight_restricted' && $outcome === 'unserviceable'))) {
-                    $aircraft->forceFill(['operational_status' => $outcome])->save();
+                    $aircraft->forceFill(['operational_status' => $outcome, 'maintenance_restriction_task_id' => $task->id])->save();
                     app(RecordAuditEntry::class)->execute(new AuditEntryData(
                         actor: $request->user(), auditable: $aircraft, action: 'maintenance.serviceability_restricted',
                         requirementId: 'FR-MNT-003', regulatorySource: $task->requirement_source,

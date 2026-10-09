@@ -33,7 +33,7 @@ export default function ComponentLifecycleCard({ component, aircraftId, canManag
         {component.replaces_component_id && <p>Replaces component #{component.replaces_component_id}</p>}
         {(['removal_evidence', 'installation_evidence'] as const).map((key) => component[key] && <details key={key} className="mt-2">
             <summary>{key.replaceAll('_', ' ')}</summary>
-            {Object.entries(component[key] ?? {}).map(([field, value]) => <p key={field} className="mt-1 break-words">{field.replaceAll('_', ' ')}: {String(value)}</p>)}
+            {Object.entries(component[key] ?? {}).map(([field, value]) => <p key={field} className="mt-1 break-words">{field.replaceAll('_', ' ')}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>)}
         </details>)}
         {canManage && ['active', 'awaiting_replacement'].includes(component.status) && <div className="mt-3 flex gap-2">
             <Button type="button" variant="outline" disabled={form.processing} onClick={() => { setMode('replace'); form.clearErrors(); }}>Replace component</Button>

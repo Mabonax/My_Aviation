@@ -33,6 +33,10 @@ class ReleaseMission
                 app(AeronauticalRepositoryInterface::class)->lockDataset();
                 $mission = UasMission::query()->lockForUpdate()->findOrFail($mission->id);
                 Gate::forUser($actor)->authorize('update', $mission);
+                if ($mission->uas_aircraft_id) {
+                    \App\Domains\Uas\Aircraft\Domain\Models\UasAircraft::query()
+                        ->lockForUpdate()->findOrFail($mission->uas_aircraft_id);
+                }
 
                 if ($mission->uas_operator_id && $mission->uas_pilot_id
                     && ! $this->pilotApproval->isApproved((int) $mission->uas_operator_id, (int) $mission->uas_pilot_id)) {
@@ -110,3 +114,4 @@ class ReleaseMission
         }
     }
 }
+

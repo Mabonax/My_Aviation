@@ -38,6 +38,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('aircraft-catalogue/{aircraftModel}', [AircraftCatalogueController::class, 'show'])->name('aircraft-catalogue.show');
         Route::get('aircraft', [AircraftController::class, 'index'])->name('aircraft.index');
         Route::get('aircraft/{aircraft}', [AircraftController::class, 'show'])->name('aircraft.show');
+        Route::get('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'index'])->name('aircraft.maintenance.index');
+        Route::post('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'store'])->name('aircraft.maintenance.store');
+        Route::post('aircraft/{aircraft}/maintenance-authorities', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'store'])->name('aircraft.maintenance-authorities.store');
+        Route::post('aircraft/{aircraft}/maintenance-authorities/{authority}/revoke', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'revoke'])->name('aircraft.maintenance-authorities.revoke');
+        Route::post('aircraft/{aircraft}/maintenance/{task}/complete', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'complete'])->name('aircraft.maintenance.complete');
+        Route::post('aircraft/{aircraft}/maintenance/{task}/return-to-service', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceReleaseController::class, 'release'])->name('aircraft.maintenance.return-to-service');
+        Route::post('aircraft/{aircraft}/components/{component}/remove', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'remove'])->name('aircraft.components.remove');
+        Route::post('aircraft/{aircraft}/components/{component}/replace', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'replace'])->name('aircraft.components.replace');
         Route::get('evidence-documents', [EvidenceDocumentController::class, 'index'])->name('evidence-documents.index');
         Route::post('evidence-documents', [EvidenceDocumentController::class, 'store'])->name('evidence-documents.store');
         Route::get('defects', [TenantOperationalController::class, 'defects'])->name('defects.index');
@@ -49,6 +57,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('missions/{mission}/release', [MissionController::class, 'release'])->name('missions.release');
         Route::get('missions/{mission}/post-flight-propagation', [MissionController::class, 'postFlightPropagation'])->name('missions.post-flight-propagation.show');
         Route::post('missions/{mission}/post-flight-propagation', [MissionController::class, 'propagatePostFlight'])->name('missions.post-flight-propagation.store');
+        Route::get('missions/{mission}/telemetry-imports', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'index'])->name('missions.telemetry.index');
+        Route::post('missions/{mission}/telemetry-imports', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'store'])->middleware('throttle:20,1')->name('missions.telemetry.store');
+        Route::post('missions/{mission}/telemetry-imports/{import}/accept', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'accept'])->name('missions.telemetry.accept');
         Route::get('missions/{mission}', [MissionController::class, 'show'])->name('missions.show');
     });
 });
+

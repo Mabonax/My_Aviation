@@ -23,6 +23,7 @@ export default function Show({ mission, missionCompliance, spatialRuleReview, pr
                 <PageHeader title={mission.mission_number} description={mission.purpose} actions={<div className="flex gap-2"><Button variant="outline" asChild><Link href="/missions">Back</Link></Button><Button variant="outline" asChild><Link href={`/missions/${mission.id}/briefing`}>Briefing</Link></Button><Button disabled={missionCompliance.status === 'red'} onClick={() => router.post(`/missions/${mission.id}/release`)}><Rocket />{missionCompliance.status === 'green' ? 'Release Mission' : missionCompliance.status === 'amber' ? 'Review & Release' : 'Release Blocked'}</Button></div>} />
 
                 <MissionJourney journey={mission.journey} />
+                <Button variant="outline" asChild><Link href={`/missions/${mission.id}/telemetry`}>Import and review flight telemetry</Link></Button>
 
                 <div className="grid gap-4 xl:grid-cols-2">
                     <Panel title="Mission Release Readiness">
@@ -389,3 +390,4 @@ function ReadinessIcon({ status }: { status: MissionComplianceSummary['status'] 
 
     return <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />;
 }
+

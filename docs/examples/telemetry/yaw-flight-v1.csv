@@ -1,0 +1,4 @@
+recorded_at,latitude,longitude,altitude_ft,aircraft_serial,event
+2026-01-01T08:00:00Z,-25.9,28.1,0,DEMO-AIRCRAFT-SERIAL,takeoff
+2026-01-01T08:30:00Z,-25.8,28.2,250,DEMO-AIRCRAFT-SERIAL,sample
+2026-01-01T09:00:00Z,-25.9,28.1,0,DEMO-AIRCRAFT-SERIAL,landing

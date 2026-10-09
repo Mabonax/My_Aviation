@@ -131,10 +131,21 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('batteries', BatteryController::class)->only(['index', 'create', 'store']);
     Route::resource('aircraft-catalogue', AircraftCatalogueController::class)->only(['index', 'show'])->parameters(['aircraft-catalogue' => 'aircraftModel']);
     Route::resource('aircraft', AircraftController::class)->only(['index', 'create', 'store', 'show']);
+    Route::get('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'index'])->name('aircraft.maintenance.index');
+    Route::post('aircraft/{aircraft}/maintenance', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'store'])->name('aircraft.maintenance.store');
+    Route::post('aircraft/{aircraft}/maintenance-authorities', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'store'])->name('aircraft.maintenance-authorities.store');
+    Route::post('aircraft/{aircraft}/maintenance-authorities/{authority}/revoke', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceAuthorityController::class, 'revoke'])->name('aircraft.maintenance-authorities.revoke');
+    Route::post('aircraft/{aircraft}/maintenance/{task}/complete', [\App\Domains\Uas\Maintenance\Http\Controllers\AircraftMaintenanceController::class, 'complete'])->name('aircraft.maintenance.complete');
+    Route::post('aircraft/{aircraft}/maintenance/{task}/return-to-service', [\App\Domains\Uas\Maintenance\Http\Controllers\MaintenanceReleaseController::class, 'release'])->name('aircraft.maintenance.return-to-service');
+    Route::post('aircraft/{aircraft}/components/{component}/remove', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'remove'])->name('aircraft.components.remove');
+    Route::post('aircraft/{aircraft}/components/{component}/replace', [\App\Domains\Uas\Maintenance\Http\Controllers\ComponentLifecycleController::class, 'replace'])->name('aircraft.components.replace');
     Route::resource('evidence-documents', EvidenceDocumentController::class)->only(['index', 'store']);
     Route::resource('defects', AircraftDefectController::class)->only(['index', 'create', 'store']);
     Route::resource('missions', MissionController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('missions/{mission}/release', [MissionController::class, 'release'])->name('missions.release');
+    Route::get('missions/{mission}/telemetry', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'page'])->name('missions.telemetry.page');
+    Route::post('missions/{mission}/telemetry', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'webStore'])->middleware('throttle:20,1')->name('missions.telemetry.upload');
+    Route::post('missions/{mission}/telemetry/{import}/accept', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'webAccept'])->name('missions.telemetry.confirm');
     Route::post('missions/{mission}/post-flight-propagation', [MissionController::class, 'propagatePostFlight'])->name('missions.post-flight-propagation');
     Route::get('missions/{mission}/pre-flight-checklist', [PreFlightChecklistController::class, 'create'])->name('missions.pre-flight-checklist.create');
     Route::post('missions/{mission}/pre-flight-checklist', [PreFlightChecklistController::class, 'store'])->name('missions.pre-flight-checklist.store');
@@ -167,3 +178,4 @@ Route::middleware(['auth'])->group(function () {
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
+

@@ -135,6 +135,9 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('defects', AircraftDefectController::class)->only(['index', 'create', 'store']);
     Route::resource('missions', MissionController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('missions/{mission}/release', [MissionController::class, 'release'])->name('missions.release');
+    Route::get('missions/{mission}/telemetry', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'page'])->name('missions.telemetry.page');
+    Route::post('missions/{mission}/telemetry', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'webStore'])->middleware('throttle:20,1')->name('missions.telemetry.upload');
+    Route::post('missions/{mission}/telemetry/{import}/accept', [\App\Domains\Uas\Telemetry\Http\Controllers\MissionTelemetryController::class, 'webAccept'])->name('missions.telemetry.confirm');
     Route::post('missions/{mission}/post-flight-propagation', [MissionController::class, 'propagatePostFlight'])->name('missions.post-flight-propagation');
     Route::get('missions/{mission}/pre-flight-checklist', [PreFlightChecklistController::class, 'create'])->name('missions.pre-flight-checklist.create');
     Route::post('missions/{mission}/pre-flight-checklist', [PreFlightChecklistController::class, 'store'])->name('missions.pre-flight-checklist.store');
@@ -167,3 +170,4 @@ Route::middleware(['auth'])->group(function () {
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
+

@@ -381,6 +381,40 @@ function telemetryDeclarations(): array
         'occurrence_declared' => false, 'closure_notes' => 'Reviewed flight samples.'];
 }
 
+it('reviews and accepts telemetry through the authenticated web workspace', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $this->actingAs($user)->withSession(['yaw_operator_id' => $mission->uas_operator_id]);
+    $url = "/missions/{$mission->id}/telemetry";
+    $this->get($url)->assertInertia(fn ($page) => $page->component('missions/telemetry')
+        ->where('mission.can_import', true)->has('imports.data', 0));
+    $this->post($url, ['file' => \Illuminate\Http\UploadedFile::fake()
+        ->createWithContent('flight.csv', telemetryCsvForMission($mission))])->assertRedirect($url);
+    $import = \App\Domains\Uas\Telemetry\Domain\Models\TelemetryImport::query()->firstOrFail();
+    expect(PilotLogEntry::query()->count())->toBe(0);
+    $this->get($url)->assertInertia(fn ($page) => $page
+        ->has('imports.data', 1)->missing('imports.data.0.raw_csv')
+        ->missing('imports.data.0.flight.points'));
+    $this->from($url)->post($url."/{$import->id}/accept", [])->assertSessionHasErrors('telemetry_confirmed');
+    expect($import->refresh()->state)->toBe('pending_review');
+    $this->post($url."/{$import->id}/accept", telemetryDeclarations())->assertRedirect($url);
+    $this->get($url)->assertInertia(fn ($page) => $page
+        ->where('mission.can_import', false)->where('imports.data.0.state', 'accepted'));
+    expect(PilotLogEntry::query()->count())->toBe(1)->and(AircraftFlightFolio::query()->count())->toBe(1);
+});
+
+it('protects web telemetry evidence from other operators and read-only users', function () {
+    $mission = postFlightPropagationMission();
+    $foreign = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission, UasOperatorMembership::ROLE_REMOTE_PILOT);
+    $this->actingAs($user)->withSession(['yaw_operator_id' => $mission->uas_operator_id]);
+    $this->get("/missions/{$foreign->id}/telemetry")->assertNotFound();
+    $this->post("/missions/{$mission->id}/telemetry")->assertForbidden();
+});
+
 it('never turns planned times into actual evidence when called directly', function () {
     $mission = postFlightPropagationMission();
     $user = postFlightPropagationUser();

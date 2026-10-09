@@ -14,6 +14,39 @@ use Illuminate\Support\Facades\Gate;
 
 class MissionTelemetryController extends Controller
 {
+    public function page(Request $request, UasMission $mission, CurrentOperatorContext $context): \Inertia\Response
+    {
+        $this->authorizeMission($request, $mission, $context);
+        return \Inertia\Inertia::render('missions/telemetry', [
+            'mission' => [
+                'id' => $mission->id,
+                'mission_number' => $mission->mission_number,
+                'pilot' => $mission->pilot?->first_name.' '.$mission->pilot?->last_name,
+                'aircraft' => $mission->aircraft?->registration,
+                'serial' => $mission->aircraft?->serial_number,
+                'can_import' => Gate::allows('update', $mission)
+                    && in_array($mission->lifecycle_state, [
+                        \App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState::Completed,
+                        \App\Domains\Uas\Missions\Domain\Enums\MissionLifecycleState::PostFlightReview,
+                    ], true) && $mission->post_flight_propagated_at === null,
+            ],
+            'imports' => TelemetryImport::query()->where('uas_mission_id', $mission->id)
+                ->latest('id')->paginate(20)->withQueryString()->through(fn ($import) => $this->present($import)),
+        ]);
+    }
+
+    public function webStore(Request $request, UasMission $mission, CurrentOperatorContext $context, ImportMissionTelemetry $action): \Illuminate\Http\RedirectResponse
+    {
+        $this->store($request, $mission, $context, $action);
+        return redirect()->route('missions.telemetry.page', $mission);
+    }
+
+    public function webAccept(Request $request, UasMission $mission, TelemetryImport $import, CurrentOperatorContext $context, ImportMissionTelemetry $action): \Illuminate\Http\RedirectResponse
+    {
+        $this->accept($request, $mission, $import, $context, $action);
+        return redirect()->route('missions.telemetry.page', $mission);
+    }
+
     public function index(Request $request, UasMission $mission, CurrentOperatorContext $context): JsonResponse
     {
         $this->authorizeMission($request, $mission, $context);

@@ -49,3 +49,9 @@ Open maintenance obligations are not deleted or transferred automatically. Compl
 State and serial history are shared aircraft facts. Installation/removal evidence is visible only in its recording operator context. Aircraft locks and a unique replacement link protect repeat requests; invalid replacements leave the old component unchanged.
 
 This is same-model/component-type replacement, not an engineering modification or regulator-approved return to service. Initial installation of additional components, transfer between aircraft, backdated corrections, independent technician authority and MySQL concurrency/browser acceptance remain outstanding.
+
+## Lifetime counter boundary follow-up
+
+Post-flight component usage validates the resulting lifetime counters before writing a ledger entry. Hour arithmetic uses integer hundredths; totals above 99,999,999.99 hours or 4,294,967,295 flight cycles reject acceptance with a review message. This applies consistently to SQLite and MySQL instead of relying on database overflow behaviour. Reaching the exact storage boundary remains valid and idempotent. Component life-limit readiness checks remain separate.
+
+Regression coverage checks both overflowing counters, including rollback of an earlier component update, telemetry acceptance, mission actuals, track, pilot log and aircraft folio. Exact-boundary acceptance is also covered. Live MySQL concurrency remains unverified.

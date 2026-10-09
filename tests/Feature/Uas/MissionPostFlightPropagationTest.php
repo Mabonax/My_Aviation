@@ -687,6 +687,47 @@ it('rolls back component usage when post-flight acceptance is blocked', function
         ->and(\Illuminate\Support\Facades\DB::table('uas_component_flight_usage')->count())->toBe(0);
 });
 
+it('rolls back all flight records when a component lifetime counter would overflow', function (array $counters) {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $first = maintenanceComponent($mission);
+    $limited = maintenanceComponent($mission, $counters);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    expect(fn () => $action->accept($mission, $import, $user, telemetryDeclarations()))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect($import->fresh()->state)->toBe('pending_review')
+        ->and($mission->fresh()->actual_takeoff_at)->toBeNull()
+        ->and((float) $first->fresh()->accumulated_hours)->toBe(0.0)
+        ->and($first->fresh()->accumulated_cycles)->toBe(0)
+        ->and((float) $limited->fresh()->accumulated_hours)->toBe((float) $counters['accumulated_hours'])
+        ->and($limited->fresh()->accumulated_cycles)->toBe($counters['accumulated_cycles'])
+        ->and(\Illuminate\Support\Facades\DB::table('uas_component_flight_usage')->count())->toBe(0)
+        ->and(PilotLogEntry::query()->count())->toBe(0)
+        ->and(AircraftFlightFolio::query()->count())->toBe(0)
+        ->and(UasFlightTrack::query()->count())->toBe(0);
+})->with([
+    'hours' => [['accumulated_hours' => 99999999.50, 'accumulated_cycles' => 0]],
+    'cycles' => [['accumulated_hours' => 0, 'accumulated_cycles' => 4294967295]],
+]);
+
+it('accepts component counters at the storage boundary and remains idempotent', function () {
+    $mission = postFlightPropagationMission();
+    $user = postFlightPropagationUser();
+    postFlightAuthorize($user, $mission);
+    postFlightPropagationChecklist($mission);
+    $component = maintenanceComponent($mission, ['accumulated_hours' => 99999998.99, 'accumulated_cycles' => 4294967294]);
+    $action = app(\App\Domains\Uas\Telemetry\Application\Actions\ImportMissionTelemetry::class);
+    $import = $action->stage($mission, $user, telemetryCsvForMission($mission));
+    $action->accept($mission, $import, $user, telemetryDeclarations());
+    $action->accept($mission, $import, $user, telemetryDeclarations());
+    expect((float) $component->fresh()->accumulated_hours)->toBe(99999999.99)
+        ->and($component->fresh()->accumulated_cycles)->toBe(4294967295)
+        ->and(\Illuminate\Support\Facades\DB::table('uas_component_flight_usage')->count())->toBe(1);
+});
+
 it('does not assign historical flight usage to retired or subsequently installed components', function () {
     $mission = postFlightPropagationMission();
     $user = postFlightPropagationUser();

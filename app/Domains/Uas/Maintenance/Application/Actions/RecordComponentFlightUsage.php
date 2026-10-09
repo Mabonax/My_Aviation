@@ -5,6 +5,7 @@ namespace App\Domains\Uas\Maintenance\Application\Actions;
 use App\Domains\Uas\Aircraft\Domain\Models\UasAircraft;
 use App\Domains\Uas\Missions\Domain\Models\UasMission;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RecordComponentFlightUsage
 {
@@ -37,6 +38,15 @@ class RecordComponentFlightUsage
             $alreadyRecorded = DB::table('uas_component_flight_usage')
                 ->where('uas_aircraft_component_id', $component->id)->where('uas_mission_id', $mission->id)->exists();
             if (! $alreadyRecorded) {
+                // Match DECIMAL(10, 2) and unsigned integer storage on every database.
+                $hourHundredths = (int) round((float) $component->accumulated_hours * 100)
+                    + (int) round($hours * 100);
+                $cycles = (int) $component->accumulated_cycles + 1;
+                if ($hourHundredths > 9999999999 || $cycles > 4294967295) {
+                    throw ValidationException::withMessages([
+                        'mission' => 'Component usage exceeds the supported lifetime counter range; review the component records before accepting this flight.',
+                    ]);
+                }
                 DB::table('uas_component_flight_usage')->insert([
                 'uas_aircraft_component_id' => $component->id,
                 'uas_mission_id' => $mission->id,
@@ -45,8 +55,8 @@ class RecordComponentFlightUsage
                 'recorded_at' => now(),
                 ]);
                 $component->forceFill([
-                    'accumulated_hours' => round((float) $component->accumulated_hours + $hours, 2),
-                    'accumulated_cycles' => $component->accumulated_cycles + 1,
+                    'accumulated_hours' => $hourHundredths / 100,
+                    'accumulated_cycles' => $cycles,
                 ])->save();
             }
             $ids[] = $component->id;
